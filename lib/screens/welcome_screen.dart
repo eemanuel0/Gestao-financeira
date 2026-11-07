@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../core/app_colors.dart';
 import '../widgets/glow_background.dart';
+import 'login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -60,13 +62,20 @@ class WelcomeScreen extends StatelessWidget {
 
                 const Spacer(flex: 3),
 
-
                 // Botão Entrar
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      // Abre a tela de login
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.button,
                       foregroundColor: Colors.black,
@@ -91,7 +100,12 @@ class WelcomeScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       backgroundColor: Colors.white.withOpacity(0.04),
