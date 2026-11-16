@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../core/app_colors.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -203,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         foregroundColor: Colors.white,
                         backgroundColor: Colors.white.withOpacity(0.04),
                         side: const BorderSide(color: AppColors.outline),
-                                                shape: RoundedRectangleBorder(
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
@@ -258,7 +260,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const RegisterScreen(),
+                              ),
+                            );
+                          },
                           child: Text(
                             'Criar conta',
                             style: GoogleFonts.poppins(
@@ -290,9 +299,9 @@ class _LoginScreenState extends State<LoginScreen> {
     TextInputType? keyboardType,
   }) {
     OutlineInputBorder border(Color color) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: color),
-        );
+      borderRadius: BorderRadius.circular(20),
+      borderSide: BorderSide(color: color),
+    );
 
     return TextField(
       controller: controller,
