@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 
-import 'screens/welcome_screen.dart';
+import 'app.dart';
+import 'core/app_database.dart';
+import 'models/services/supabase_account_service.dart';
+import 'models/services/supabase_finance_repository.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Finanças',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
-      home: const WelcomeScreen(),
+  try {
+    // Abre o serviço antes de montar as telas, conforme o padrão do projeto.
+    final database = await AppDatabase.instance.database;
+    runApp(
+      MyApp(
+        accountService: SupabaseAccountService(database),
+        repository: SupabaseFinanceRepository(database),
+      ),
     );
+  } catch (error, stackTrace) {
+    debugPrint('Falha ao iniciar Finanças: $error\n$stackTrace');
+    runApp(const StartupFailureApp());
   }
 }

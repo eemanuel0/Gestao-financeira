@@ -6,11 +6,13 @@ import '../core/app_colors.dart';
 class AppBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
+  final VoidCallback onAddPressed;
 
   const AppBottomNav({
     super.key,
     required this.selectedIndex,
     required this.onTabSelected,
+    required this.onAddPressed,
   });
 
   @override
@@ -73,9 +75,9 @@ class AppBottomNav extends StatelessWidget {
                   color: AppColors.neon,
                   shape: const CircleBorder(),
                   child: InkWell(
+                    key: const ValueKey('add-transaction'),
                     customBorder: const CircleBorder(),
-                    // O cadastro de lançamento será feito depois.
-                    onTap: () {},
+                    onTap: onAddPressed,
                     child: SizedBox(
                       width: 56,
                       height: 56,

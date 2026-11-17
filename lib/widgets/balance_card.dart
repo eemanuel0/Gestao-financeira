@@ -5,9 +5,9 @@ import '../core/app_colors.dart';
 import '../utils/formatters.dart';
 
 class BalanceCard extends StatefulWidget {
-  final double balance;
+  final int balanceCents;
 
-  const BalanceCard({super.key, required this.balance});
+  const BalanceCard({super.key, required this.balanceCents});
 
   @override
   State<BalanceCard> createState() => _BalanceCardState();
@@ -75,7 +75,9 @@ class _BalanceCardState extends State<BalanceCard> {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      _isVisible ? formatBRL(widget.balance) : 'R\$ ••••••',
+                      _isVisible
+                          ? formatCentsBRL(widget.balanceCents)
+                          : 'R\$ ••••••',
                       style: GoogleFonts.poppins(
                         color: AppColors.dashboardText,
                         fontSize: 34,

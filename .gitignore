@@ -46,3 +46,11 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Configuração e atualização Finanças
+/config/supabase.json
+/financas_atualizado/
+/financas_atualizado.zip
+/codigo_financas.zip
+/backups_financas/
+/.dart_tool/

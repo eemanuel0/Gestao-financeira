@@ -6,14 +6,14 @@ import '../utils/formatters.dart';
 
 class SummaryCard extends StatelessWidget {
   final String title;
-  final double amount;
+  final int amountCents;
   final IconData icon;
   final Color accentColor;
 
   const SummaryCard({
     super.key,
     required this.title,
-    required this.amount,
+    required this.amountCents,
     required this.icon,
     required this.accentColor,
   });
@@ -60,7 +60,7 @@ class SummaryCard extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                formatBRL(amount),
+                formatCentsBRL(amountCents),
                 style: GoogleFonts.poppins(
                   color: accentColor,
                   fontSize: 20,
