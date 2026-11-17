@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/app_colors.dart';
 import 'register_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,8 +41,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.neon.withOpacity(0.35),
-                    AppColors.neon.withOpacity(0.08),
+                    AppColors.neon.withValues(alpha: 0.35),
+                    AppColors.neon.withValues(alpha: 0.08),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -156,7 +157,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const HomeScreen(),
+                          ),
+                          (route) => false,
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.button,
                         foregroundColor: Colors.black,
@@ -203,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () {},
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
-                        backgroundColor: Colors.white.withOpacity(0.04),
+                        backgroundColor: Colors.white.withValues(alpha: 0.04),
                         side: const BorderSide(color: AppColors.outline),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
@@ -311,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
       cursorColor: AppColors.neon,
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.04),
+        fillColor: Colors.white.withValues(alpha: 0.04),
         hintText: hint,
         hintStyle: GoogleFonts.poppins(
           fontSize: 15,

@@ -35,8 +35,8 @@ class _GlowPainter extends CustomPainter {
           center: const Alignment(-1.1, -1.05),
           radius: 0.85,
           colors: [
-            AppColors.neon.withOpacity(0.65),
-            AppColors.neon.withOpacity(0.22),
+            AppColors.neon.withValues(alpha: 0.65),
+            AppColors.neon.withValues(alpha: 0.22),
             Colors.transparent,
           ],
           stops: const [0.0, 0.45, 1.0],
@@ -61,8 +61,8 @@ class _GlowPainter extends CustomPainter {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            AppColors.neon.withOpacity(0.35),
-            AppColors.neon.withOpacity(0.05),
+            AppColors.neon.withValues(alpha: 0.35),
+            AppColors.neon.withValues(alpha: 0.05),
             Colors.transparent,
           ],
           stops: const [0.0, 0.5, 1.0],
@@ -73,7 +73,7 @@ class _GlowPainter extends CustomPainter {
     canvas.drawPath(
       wave,
       Paint()
-        ..color = AppColors.neon.withOpacity(0.5)
+        ..color = AppColors.neon.withValues(alpha: 0.5)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 25),

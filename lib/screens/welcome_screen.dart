@@ -28,11 +28,11 @@ class WelcomeScreen extends StatelessWidget {
                   color: AppColors.neon,
                   shadows: [
                     Shadow(
-                      color: AppColors.neon.withOpacity(0.6),
+                      color: AppColors.neon.withValues(alpha: 0.6),
                       blurRadius: 9,
                     ),
                     Shadow(
-                      color: AppColors.neon.withOpacity(0.5),
+                      color: AppColors.neon.withValues(alpha: 0.5),
                       blurRadius: 16,
                     ),
                   ],
@@ -111,7 +111,7 @@ class WelcomeScreen extends StatelessWidget {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      backgroundColor: Colors.white.withOpacity(0.04),
+                      backgroundColor: Colors.white.withValues(alpha: 0.04),
                       side: const BorderSide(color: AppColors.outline),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -131,18 +131,6 @@ class WelcomeScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _dot({required bool active}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: active ? AppColors.neon : AppColors.dotInactive,
       ),
     );
   }
