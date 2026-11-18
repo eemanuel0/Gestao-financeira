@@ -54,3 +54,9 @@ app.*.map.json
 /codigo_financas.zip
 /backups_financas/
 /.dart_tool/
+
+# Configuração e atualização Finanças
+/financas_dados_reais.zip
+
+# Configuração e atualização Finanças
+/financas_editar_lancamentos.zip

@@ -5,6 +5,7 @@ class FinanceSummary {
   final int incomeCents;
   final int expenseCents;
   final List<CategorySpending> categories;
+  final Map<TransactionCategory, int> expenseTotals;
 
   int get balanceCents => incomeCents - expenseCents;
 
@@ -12,7 +13,26 @@ class FinanceSummary {
     required this.incomeCents,
     required this.expenseCents,
     required this.categories,
+    required this.expenseTotals,
   });
+
+  // Usa a data civil do lançamento e os dados da conta informada.
+  factory FinanceSummary.forMonth(
+    List<FinanceTransaction> transactions, {
+    required String userId,
+    required DateTime month,
+  }) {
+    return FinanceSummary.fromTransactions(
+      transactions
+          .where(
+            (transaction) =>
+                transaction.userId == userId &&
+                transaction.occurredOn.year == month.year &&
+                transaction.occurredOn.month == month.month,
+          )
+          .toList(),
+    );
+  }
 
   factory FinanceSummary.fromTransactions(
     List<FinanceTransaction> transactions,
@@ -46,6 +66,9 @@ class FinanceSummary {
     return FinanceSummary._(
       incomeCents: income,
       expenseCents: expenses,
+      expenseTotals: Map<TransactionCategory, int>.unmodifiable(
+        Map<TransactionCategory, int>.fromEntries(sortedCategories),
+      ),
       categories: List<CategorySpending>.unmodifiable(
         sortedCategories.map(
           (entry) => CategorySpending(

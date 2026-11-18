@@ -5,6 +5,7 @@ import '../core/app_colors.dart';
 import '../models/finance_transaction.dart';
 import '../models/services/finance_repository.dart';
 import '../utils/formatters.dart';
+import '../utils/currency_input_formatter.dart';
 
 // O formulário devolve os dados; a tela anterior faz a gravação.
 class NewTransactionData {
@@ -133,9 +134,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         TextFormField(
                           key: const ValueKey('transaction-amount'),
                           controller: _amountController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [CurrencyInputFormatter()],
                           textInputAction: TextInputAction.next,
                           style: _fieldStyle,
                           cursorColor: AppColors.neon,
@@ -147,7 +147,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                 prefixText: 'R\$ ',
                                 prefixStyle: _fieldStyle,
                                 hintText: 'Digite o valor',
-                                helperText: 'Use vírgula nos centavos: 125,50',
+                                helperText: 'Digite os números; os centavos são preenchidos automaticamente.',
+
                                 helperStyle: _hintStyle,
                                 helperMaxLines: 2,
                               ),

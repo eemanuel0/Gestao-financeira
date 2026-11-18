@@ -8,6 +8,7 @@ import 'core/app_colors.dart';
 import 'models/app_user.dart';
 import 'models/services/account_service.dart';
 import 'models/services/finance_repository.dart';
+import 'models/services/monthly_limit_repository.dart';
 import 'screens/home_screen.dart';
 import 'screens/welcome_screen.dart';
 
@@ -29,11 +30,13 @@ ThemeData buildAppTheme() {
 class MyApp extends StatefulWidget {
   final AccountService accountService;
   final FinanceRepository repository;
+  final MonthlyLimitRepository? monthlyLimitRepository;
 
   const MyApp({
     super.key,
     required this.accountService,
     required this.repository,
+    this.monthlyLimitRepository,
   });
 
   @override
@@ -88,6 +91,7 @@ class _MyAppState extends State<MyApp> {
               user: user,
               accountService: widget.accountService,
               repository: widget.repository,
+              monthlyLimitRepository: widget.monthlyLimitRepository,
             ),
     );
   }

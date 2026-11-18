@@ -12,4 +12,15 @@ class AppColors {
   static const Color dashboardSurface = Color(0xFF171816);
   static const Color dashboardTrack = Color(0xFF292A27);
   static const Color dashboardText = Colors.white;
+  // Fundos e bordas dos avisos de limite.
+  static final Color limitExceededBackground = dashboardExpense.withValues(
+    alpha: 0.14,
+  );
+
+  static final Color limitExceededBorder = dashboardExpense.withValues(
+    alpha: 0.55,
+  );
+
+  static final Color limitWithinBackground = neon.withValues(alpha: 0.07);
+  static final Color limitWithinBorder = neon.withValues(alpha: 0.65);
 }

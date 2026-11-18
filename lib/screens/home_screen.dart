@@ -9,23 +9,30 @@ import '../models/finance_summary.dart';
 import '../models/finance_transaction.dart';
 import '../models/services/account_service.dart';
 import '../models/services/finance_repository.dart';
+import '../models/services/monthly_limit_repository.dart';
+import '../utils/date_formatters.dart';
 import '../utils/formatters.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/app_header.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/category_item.dart';
+import '../widgets/edit_transaction_description_sheet.dart';
 import '../widgets/summary_card.dart';
 import 'add_transaction_screen.dart';
+import 'reports_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final AppUser user;
   final AccountService accountService;
   final FinanceRepository repository;
+  final MonthlyLimitRepository? monthlyLimitRepository;
 
   const HomeScreen({
     super.key,
     required this.user,
     required this.accountService,
     required this.repository,
+    this.monthlyLimitRepository,
   });
 
   @override
@@ -39,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _loadGeneration = 0;
   bool _isLoading = true;
   bool _isOpeningForm = false;
+  bool _isEditingDescription = false;
   bool _isSigningOut = false;
   String? _loadError;
 
@@ -139,7 +147,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _openAddTransaction() async {
-    if (_isOpeningForm || _isSigningOut || !_sessionMatches) return;
+    if (_isOpeningForm ||
+        _isEditingDescription ||
+        _isSigningOut ||
+        !_sessionMatches) {
+      return;
+    }
     _isOpeningForm = true;
     final userId = widget.user.id;
     final repository = widget.repository;
@@ -177,9 +190,133 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
       if (!sameAccount() || saved == null) return;
       await _loadTransactions();
-      if (sameAccount()) _showMessage('Lançamento adicionado com sucesso.');
+      if (sameAccount()) await _showSavedTransactionMessage(saved);
     } finally {
       _isOpeningForm = false;
+    }
+  }
+
+  Future<void> _editTransactionDescription(
+    FinanceTransaction transaction,
+  ) async {
+    if (_isEditingDescription ||
+        _isOpeningForm ||
+        _isSigningOut ||
+        !_sessionMatches) {
+      return;
+    }
+    final userId = widget.user.id;
+    if (transaction.userId != userId) return;
+    final repository = widget.repository;
+    bool sameAccount() =>
+        mounted &&
+        _sessionMatches &&
+        !_isSigningOut &&
+        widget.user.id == userId &&
+        identical(widget.repository, repository);
+    _isEditingDescription = true;
+    try {
+      final savedDescription = await showEditTransactionDescriptionSheet(
+        context,
+        currentDescription: transaction.description,
+        onSave: (description) async {
+          if (!sameAccount()) {
+            throw const FinanceException('Sua sessão mudou. Entre novamente.');
+          }
+          final updated = await repository.updateTransactionDescription(
+            transactionId: transaction.id,
+            description: description,
+          );
+          if (!sameAccount()) {
+            throw const FinanceException('Sua sessão mudou. Entre novamente.');
+          }
+          if (updated.id != transaction.id ||
+              updated.userId != userId ||
+              updated.description != description.trim()) {
+            throw const FinanceException(
+              'Não foi possível confirmar a alteração. Atualize seus lançamentos.',
+            );
+          }
+          if (!_transactions.any((current) => current.id == updated.id)) {
+            // Uma falha de atualização pode ter esvaziado a lista enquanto
+            // o editor estava aberto. Recarrega sem inventar uma lista parcial.
+            await _loadTransactions();
+            if (!sameAccount()) {
+              throw const FinanceException(
+                'Sua sessão mudou. Entre novamente.',
+              );
+            }
+            return;
+          }
+          // Invalida releituras iniciadas antes da edição para não restaurar
+          // a descrição antiga. Todas as abas usam esta mesma lista.
+          setState(() {
+            _loadGeneration++;
+            _transactions = List<FinanceTransaction>.unmodifiable([
+              for (final current in _transactions)
+                if (current.id == updated.id) updated else current,
+            ]);
+            _isLoading = false;
+            _loadError = null;
+          });
+        },
+      );
+      if (sameAccount() && savedDescription != null) {
+        _showMessage(
+          _loadError == null ? 'Descrição atualizada com sucesso.' : 'Descrição salva. Atualize os dados para conferir seus lançamentos.',
+        );
+      }
+    } finally {
+      _isEditingDescription = false;
+    }
+  }
+
+  // Confere o limite real depois que a despesa foi salva e recarregada.
+  Future<void> _showSavedTransactionMessage(NewTransactionData saved) async {
+    final limits = widget.monthlyLimitRepository;
+    final userId = widget.user.id;
+    if (saved.type != TransactionType.expense || limits == null) {
+      _showMessage('Lançamento adicionado com sucesso.');
+      return;
+    }
+    if (_isLoading || _loadError != null) {
+      _showMessage(
+        'Lançamento salvo. Atualize os dados para conferir o limite.',
+      );
+      return;
+    }
+    try {
+      final limit = await limits.loadForMonth(saved.occurredOn);
+      if (!mounted || !_sessionMatches || widget.user.id != userId) return;
+      if (limit != null &&
+          (limit.userId != userId ||
+              limit.month.year != saved.occurredOn.year ||
+              limit.month.month != saved.occurredOn.month)) {
+        throw const FinanceException(
+          'Não foi possível conferir o limite desta conta.',
+        );
+      }
+      final summary = FinanceSummary.forMonth(
+        _transactions,
+        userId: userId,
+        month: saved.occurredOn,
+      );
+      if (limit != null && summary.expenseCents > limit.limitCents) {
+        final excess = summary.expenseCents - limit.limitCents;
+        _showMessage(
+          'Limite de ${formatMonthYear(saved.occurredOn)} ultrapassado em '
+          '${formatCentsBRL(excess)}.',
+        );
+      } else {
+        _showMessage('Lançamento adicionado com sucesso.');
+      }
+    } catch (_) {
+      // A despesa já foi salva; uma falha no limite não deve sugerir novo envio.
+      if (mounted && _sessionMatches && widget.user.id == userId) {
+        _showMessage(
+          'Lançamento salvo. Não foi possível verificar o limite agora.',
+        );
+      }
     }
   }
 
@@ -246,7 +383,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           index: _selectedIndex,
           children: [
             _buildDashboard(summary),
-            Center(child: _text('Em breve', size: 18, secondary: true)),
+            ReportsScreen(
+              userId: widget.user.id,
+              transactions: _transactions,
+              limitRepository: widget.monthlyLimitRepository,
+              isLoading: _isLoading,
+              loadError: _loadError,
+              onRefresh: _loadTransactions,
+              isActive: _selectedIndex == 1,
+            ),
             _buildTransactions(),
             _buildProfile(),
           ],
@@ -280,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildDashboard(FinanceSummary summary) {
     return _scrollable([
-      _buildHeader(),
+      const AppHeader(),
       const SizedBox(height: 24),
       _text('Olá, ${widget.user.firstName}', size: 25, bold: true),
       const SizedBox(height: 4),
@@ -441,6 +586,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
             ),
           ),
+          IconButton(
+            key: ValueKey('edit-transaction-${transaction.id}'),
+            tooltip: 'Editar descrição',
+            onPressed: () => _editTransactionDescription(transaction),
+            icon: Icon(Icons.edit_outlined, color: AppColors.neon, size: 20),
+          ),
         ],
       ),
     );
@@ -495,43 +646,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        Icon(Icons.savings_outlined, color: AppColors.neon, size: 32),
-        const SizedBox(width: 9),
-        Expanded(child: _text('Finanças', size: 17, bold: true)),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: AppColors.outline),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.person_outline,
-                color: AppColors.dashboardText,
-                size: 20,
-              ),
-              const SizedBox(width: 7),
-              _text('Pessoal', size: 12),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.keyboard_arrow_down,
-                color: AppColors.dashboardText,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 

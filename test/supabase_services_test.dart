@@ -111,6 +111,13 @@ void main() {
       ),
       throwsA(isA<FinanceException>()),
     );
+    await expectLater(
+      finances.updateTransactionDescription(
+        transactionId: 'row-1',
+        description: 'Novo nome',
+      ),
+      throwsA(isA<FinanceException>()),
+    );
     expect(server.requests, isEmpty);
   });
 
@@ -227,6 +234,116 @@ void main() {
     releaseQuery.complete();
     await expectation;
   });
+
+  test(
+    'edição envia somente nome e filtra lançamento e proprietário',
+    () async {
+      await signIn();
+      server.rows = [_transaction('row-1')];
+      final original = FinanceTransaction.fromJson(server.rows.single);
+
+      final updated = await finances.updateTransactionDescription(
+        transactionId: 'row-1',
+        description: '  Mercado da semana  ',
+      );
+      final request = server.requests.singleWhere(
+        (request) => request.isTransactionUpdate,
+      );
+
+      expect(request.method, 'PATCH');
+      expect(request.body, {'description': 'Mercado da semana'});
+      expect(request.query['id'], 'eq.row-1');
+      expect(request.query['user_id'], 'eq.$_userA');
+      expect(updated.id, original.id);
+      expect(updated.userId, original.userId);
+      expect(updated.description, 'Mercado da semana');
+      expect(updated.amountCents, original.amountCents);
+      expect(updated.type, original.type);
+      expect(updated.category, original.category);
+      expect(updated.occurredOn, original.occurredOn);
+      expect(updated.createdAt, original.createdAt);
+    },
+  );
+
+  test('edição inválida não gera PATCH no banco', () async {
+    await signIn();
+    for (final invalid in [
+      (id: '   ', name: 'Mercado'),
+      (id: 'row-1', name: '   '),
+      (id: 'row-1', name: List.filled(121, 'a').join()),
+    ]) {
+      await expectLater(
+        finances.updateTransactionDescription(
+          transactionId: invalid.id,
+          description: invalid.name,
+        ),
+        throwsA(isA<FinanceException>()),
+      );
+    }
+    expect(
+      server.requests.where((request) => request.isTransactionUpdate),
+      isEmpty,
+    );
+  });
+
+  test('edição rejeita resposta com outro dono, ID ou nome', () async {
+    await signIn();
+    for (final invalid in [
+      {..._transaction('row-1', userId: _userB), 'description': 'Novo nome'},
+      {..._transaction('other-row'), 'description': 'Novo nome'},
+      {..._transaction('row-1'), 'description': 'Nome diferente'},
+    ]) {
+      server.updateResponse = invalid;
+      await expectLater(
+        finances.updateTransactionDescription(
+          transactionId: 'row-1',
+          description: 'Novo nome',
+        ),
+        throwsA(isA<FinanceException>()),
+      );
+    }
+  });
+
+  test('edição ausente ou com falha no banco retorna erro amigável', () async {
+    await signIn();
+    for (final status in [406, 500]) {
+      server.updateErrorStatus = status;
+      await expectLater(
+        finances.updateTransactionDescription(
+          transactionId: 'missing-row',
+          description: 'Novo nome',
+        ),
+        throwsA(
+          isA<FinanceException>().having(
+            (error) => error.message,
+            'message',
+            'Não foi possível editar o lançamento. Tente novamente.',
+          ),
+        ),
+      );
+    }
+  });
+
+  test('não confirma edição se a sessão terminar durante o PATCH', () async {
+    await signIn();
+    server.rows = [_transaction('row-1')];
+    final started = Completer<void>();
+    final release = Completer<void>();
+    server.beforeUpdateResponse = () async {
+      started.complete();
+      await release.future;
+    };
+
+    final pending = finances.updateTransactionDescription(
+      transactionId: 'row-1',
+      description: 'Novo nome',
+    );
+    final expectation = expectLater(pending, throwsA(isA<FinanceException>()));
+    await started.future;
+    await accounts.signOut();
+    release.complete();
+    await expectation;
+  });
 }
 
 Map<String, dynamic> _transaction(String id, {String userId = _userA}) => {
@@ -257,6 +374,8 @@ class _RecordedRequest {
       method == 'GET' && path == '/rest/v1/transactions';
   bool get isTransactionInsert =>
       method == 'POST' && path == '/rest/v1/transactions';
+  bool get isTransactionUpdate =>
+      method == 'PATCH' && path == '/rest/v1/transactions';
 }
 
 // O SDK real fala HTTP com este servidor de teste, sem acessar a internet.
@@ -266,6 +385,9 @@ class _LocalSupabase {
   List<Map<String, dynamic>> rows = [];
   String? authError;
   Future<void> Function()? beforeReadResponse;
+  Future<void> Function()? beforeUpdateResponse;
+  Map<String, dynamic>? updateResponse;
+  int? updateErrorStatus;
 
   _LocalSupabase(this._server) {
     _server.listen(_handle);
@@ -314,6 +436,27 @@ class _LocalSupabase {
       );
     } else if (recorded.isTransactionInsert) {
       request.response.statusCode = HttpStatus.created;
+    } else if (recorded.isTransactionUpdate) {
+      await beforeUpdateResponse?.call();
+      final matches = rows.where(
+        (row) =>
+            recorded.query['id'] == 'eq.${row['id']}' &&
+            recorded.query['user_id'] == 'eq.${row['user_id']}',
+      );
+      if (updateErrorStatus != null ||
+          (updateResponse == null && matches.isEmpty)) {
+        request.response.statusCode = updateErrorStatus ?? 406;
+        request.response.write(
+          jsonEncode({
+            'code': 'PGRST116',
+            'message': 'Internal database detail that must not reach the user',
+          }),
+        );
+      } else {
+        request.response.write(
+          jsonEncode(updateResponse ?? {...matches.first, ...body!}),
+        );
+      }
     } else {
       request.response.statusCode = HttpStatus.notFound;
       request.response.write(

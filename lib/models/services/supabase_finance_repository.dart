@@ -94,6 +94,50 @@ class SupabaseFinanceRepository implements FinanceRepository {
     }
   }
 
+  @override
+  Future<FinanceTransaction> updateTransactionDescription({
+    required String transactionId,
+    required String description,
+  }) async {
+    final userId = _requireUserId();
+    final id = transactionId.trim();
+    final name = description.trim();
+    if (id.isEmpty) {
+      throw const FinanceException('Escolha um lançamento válido.');
+    }
+    if (name.isEmpty || name.length > 120) {
+      throw const FinanceException('Informe um nome entre 1 e 120 caracteres.');
+    }
+
+    try {
+      _checkSession(userId);
+      // Atualiza somente o nome, mantendo valor, categoria e data intactos.
+      final row = await _client
+          .from('transactions')
+          .update({'description': name})
+          .eq('id', id)
+          .eq('user_id', userId)
+          .select()
+          .single();
+      _checkSession(userId);
+      final updated = FinanceTransaction.fromJson(row);
+      if (updated.userId != userId ||
+          updated.id != id ||
+          updated.description != name) {
+        throw const FinanceException(
+          'Não foi possível confirmar a edição do lançamento.',
+        );
+      }
+      return updated;
+    } on FinanceException {
+      rethrow;
+    } catch (_) {
+      throw const FinanceException(
+        'Não foi possível editar o lançamento. Tente novamente.',
+      );
+    }
+  }
+
   String _requireUserId() {
     final user = _client.auth.currentUser;
     if (user == null) {

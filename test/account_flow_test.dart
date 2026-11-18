@@ -424,5 +424,37 @@ class _FakeRepository implements FinanceRepository {
     _controller.add(null);
   }
 
+  @override
+  Future<FinanceTransaction> updateTransactionDescription({
+    required String transactionId,
+    required String description,
+  }) async {
+    final user = accounts.currentUser;
+    if (user == null) {
+      throw const FinanceException('Entre na sua conta para continuar.');
+    }
+    final transactions = rows[user.id] ?? [];
+    final index = transactions.indexWhere(
+      (row) => row.id == transactionId && row.userId == user.id,
+    );
+    if (index < 0) {
+      throw const FinanceException('Lançamento não encontrado nesta conta.');
+    }
+    final original = transactions[index];
+    final updated = FinanceTransaction(
+      id: original.id,
+      userId: original.userId,
+      type: original.type,
+      amountCents: original.amountCents,
+      category: original.category,
+      description: description.trim(),
+      occurredOn: original.occurredOn,
+      createdAt: original.createdAt,
+    );
+    transactions[index] = updated;
+    _controller.add(null);
+    return updated;
+  }
+
   Future<void> close() => _controller.close();
 }

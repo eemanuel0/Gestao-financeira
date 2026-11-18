@@ -12,6 +12,11 @@ abstract interface class FinanceRepository {
     required DateTime occurredOn,
   });
 
+  Future<FinanceTransaction> updateTransactionDescription({
+    required String transactionId,
+    required String description,
+  });
+
   // A Home escuta mudanças de outro dispositivo e recarrega os dados.
   Stream<void> get changes;
 }

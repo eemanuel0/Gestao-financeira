@@ -4,6 +4,7 @@ import 'app.dart';
 import 'core/app_database.dart';
 import 'models/services/supabase_account_service.dart';
 import 'models/services/supabase_finance_repository.dart';
+import 'models/services/supabase_monthly_limit_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,7 @@ Future<void> main() async {
       MyApp(
         accountService: SupabaseAccountService(database),
         repository: SupabaseFinanceRepository(database),
+        monthlyLimitRepository: SupabaseMonthlyLimitRepository(database),
       ),
     );
   } catch (error, stackTrace) {
