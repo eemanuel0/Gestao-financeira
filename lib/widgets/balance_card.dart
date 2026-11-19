@@ -6,8 +6,13 @@ import '../utils/formatters.dart';
 
 class BalanceCard extends StatefulWidget {
   final int balanceCents;
+  final String title;
 
-  const BalanceCard({super.key, required this.balanceCents});
+  const BalanceCard({
+    super.key,
+    required this.balanceCents,
+    this.title = 'Saldo atual',
+  });
 
   @override
   State<BalanceCard> createState() => _BalanceCardState();
@@ -21,9 +26,9 @@ class _BalanceCardState extends State<BalanceCard> {
     return Container(
       constraints: const BoxConstraints(minHeight: 124),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.of(context).fieldFill,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -31,7 +36,12 @@ class _BalanceCardState extends State<BalanceCard> {
           // Mantém o desenho atrás do texto e do botão.
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(painter: _BalanceGlowPainter()),
+              child: CustomPaint(
+                painter: _BalanceGlowPainter(
+                  AppColors.of(context).neon,
+                  Theme.of(context).brightness == Brightness.light,
+                ),
+              ),
             ),
           ),
           Padding(
@@ -43,9 +53,9 @@ class _BalanceCardState extends State<BalanceCard> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Saldo atual',
+                        widget.title,
                         style: GoogleFonts.poppins(
-                          color: AppColors.dashboardText,
+                          color: AppColors.of(context).dashboardText,
                           fontSize: 14,
                         ),
                       ),
@@ -61,7 +71,7 @@ class _BalanceCardState extends State<BalanceCard> {
                         _isVisible
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                         size: 22,
                       ),
                     ),
@@ -79,7 +89,7 @@ class _BalanceCardState extends State<BalanceCard> {
                           ? formatCentsBRL(widget.balanceCents)
                           : 'R\$ ••••••',
                       style: GoogleFonts.poppins(
-                        color: AppColors.dashboardText,
+                        color: AppColors.of(context).dashboardText,
                         fontSize: 34,
                         height: 1.2,
                         fontWeight: FontWeight.w600,
@@ -98,6 +108,12 @@ class _BalanceCardState extends State<BalanceCard> {
 
 // Desenha uma aproximação do brilho verde da referência.
 class _BalanceGlowPainter extends CustomPainter {
+  final Color accent;
+  final bool light;
+  _BalanceGlowPainter(this.accent, this.light);
+  // No tema claro a decoração é suave para preservar o contraste dos valores.
+  double get strength => light ? 0.12 : 1;
+
   @override
   void paint(Canvas canvas, Size size) {
     final bounds = Offset.zero & size;
@@ -108,9 +124,9 @@ class _BalanceGlowPainter extends CustomPainter {
         center: const Alignment(1, 1),
         radius: 1.05,
         colors: [
-          AppColors.neon.withValues(alpha: 0.46),
-          AppColors.neon.withValues(alpha: 0.10),
-          AppColors.neon.withValues(alpha: 0),
+          accent.withValues(alpha: 0.46 * strength),
+          accent.withValues(alpha: 0.10 * strength),
+          accent.withValues(alpha: 0),
         ],
         stops: const [0, 0.50, 1],
       ).createShader(bounds);
@@ -141,7 +157,7 @@ class _BalanceGlowPainter extends CustomPainter {
 
     // Desenha uma luz difusa ao redor da onda.
     final waveGlow = Paint()
-      ..color = AppColors.neon.withValues(alpha: 0.42)
+      ..color = accent.withValues(alpha: 0.42 * strength)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
 
     canvas.drawPath(wave, waveGlow);
@@ -151,8 +167,8 @@ class _BalanceGlowPainter extends CustomPainter {
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
         colors: [
-          AppColors.neon.withValues(alpha: 0.90),
-          AppColors.neon.withValues(alpha: 0.08),
+          accent.withValues(alpha: 0.90 * strength),
+          accent.withValues(alpha: 0.08 * strength),
         ],
       ).createShader(bounds);
 
@@ -161,6 +177,6 @@ class _BalanceGlowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BalanceGlowPainter oldDelegate) {
-    return false;
+    return oldDelegate.accent != accent || oldDelegate.light != light;
   }
 }

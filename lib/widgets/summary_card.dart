@@ -23,9 +23,9 @@ class SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.of(context).fieldFill,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,7 +46,7 @@ class SummaryCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 12,
                   ),
                 ),

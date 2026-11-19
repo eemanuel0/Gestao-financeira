@@ -31,16 +31,16 @@ class SpendingLimitCard extends StatelessWidget {
     // A barra só existe quando há um limite válido carregado.
     final ratio = hasLimit ? spent / value : 0.0;
     final color = hasLimit && spent > value
-        ? AppColors.dashboardExpense
-        : AppColors.neon;
+        ? AppColors.of(context).dashboardExpense
+        : AppColors.of(context).neon;
     final label = ready && !hasLimit ? 'Definir limite' : 'Editar limite';
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.of(context).fieldFill,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,7 +51,7 @@ class SpendingLimitCard extends StatelessWidget {
                 child: Text(
                   'Limite mensal',
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 14,
                   ),
                 ),
@@ -62,7 +62,7 @@ class SpendingLimitCard extends StatelessWidget {
                 icon: const Icon(Icons.edit_outlined, size: 15),
                 label: Text(label, style: GoogleFonts.poppins(fontSize: 11)),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.neon,
+                  foregroundColor: AppColors.of(context).neon,
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                 ),
               ),
@@ -82,7 +82,7 @@ class SpendingLimitCard extends StatelessWidget {
                     ? formatBRL(value)
                     : 'Não definido',
                 style: GoogleFonts.poppins(
-                  color: AppColors.dashboardText,
+                  color: AppColors.of(context).dashboardText,
                   fontSize: isLoading || hasError ? 20 : 30,
                   fontWeight: FontWeight.w600,
                 ),
@@ -93,14 +93,14 @@ class SpendingLimitCard extends StatelessWidget {
           if (isLoading)
             LinearProgressIndicator(
               minHeight: 8,
-              color: AppColors.neon,
-              backgroundColor: AppColors.dashboardTrack,
+              color: AppColors.of(context).neon,
+              backgroundColor: AppColors.of(context).dashboardTrack,
             )
           else if (hasError) ...[
             Text(
               errorMessage!,
               style: GoogleFonts.poppins(
-                color: AppColors.textSecondary,
+                color: AppColors.of(context).textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -110,7 +110,9 @@ class SpendingLimitCard extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 16),
                 label: Text('Tentar novamente', style: GoogleFonts.poppins()),
-                style: TextButton.styleFrom(foregroundColor: AppColors.neon),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.of(context).neon,
+                ),
               ),
           ] else if (hasLimit)
             Row(
@@ -123,7 +125,7 @@ class SpendingLimitCard extends StatelessWidget {
                       minHeight: 8,
                       borderRadius: BorderRadius.circular(20),
                       color: color,
-                      backgroundColor: AppColors.dashboardTrack,
+                      backgroundColor: AppColors.of(context).dashboardTrack,
                     ),
                   ),
                 ),
@@ -131,7 +133,7 @@ class SpendingLimitCard extends StatelessWidget {
                 Text(
                   '${(ratio * 100).round()}%',
                   style: GoogleFonts.poppins(
-                    color: AppColors.textSecondary,
+                    color: AppColors.of(context).textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -141,7 +143,7 @@ class SpendingLimitCard extends StatelessWidget {
           Text(
             '${formatBRL(spent)} gastos',
             style: GoogleFonts.poppins(
-              color: AppColors.textSecondary,
+              color: AppColors.of(context).textSecondary,
               fontSize: 12,
             ),
           ),

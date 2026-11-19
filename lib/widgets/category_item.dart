@@ -18,10 +18,14 @@ class CategoryItem extends StatelessWidget {
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: AppColors.of(context).fieldFill,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(category.icon, color: AppColors.dashboardText, size: 26),
+          child: Icon(
+            category.icon,
+            color: AppColors.of(context).dashboardText,
+            size: 26,
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -34,7 +38,7 @@ class CategoryItem extends StatelessWidget {
                     child: Text(
                       category.name,
                       style: GoogleFonts.poppins(
-                        color: AppColors.dashboardText,
+                        color: AppColors.of(context).dashboardText,
                         fontSize: 13,
                       ),
                     ),
@@ -43,7 +47,7 @@ class CategoryItem extends StatelessWidget {
                   Text(
                     '${category.percentage.toStringAsFixed(0)}%',
                     style: GoogleFonts.poppins(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -56,8 +60,8 @@ class CategoryItem extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: category.percentage / 100,
                   minHeight: 8,
-                  color: AppColors.neon,
-                  backgroundColor: AppColors.dashboardTrack,
+                  color: AppColors.of(context).neon,
+                  backgroundColor: AppColors.of(context).dashboardTrack,
                 ),
               ),
             ],

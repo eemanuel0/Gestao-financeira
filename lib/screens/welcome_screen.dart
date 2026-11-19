@@ -15,7 +15,7 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: GlowBackground(
         child: SafeArea(
           child: Align(
@@ -40,18 +40,16 @@ class WelcomeScreen extends StatelessWidget {
                               Icon(
                                 Icons.savings_outlined,
                                 size: 150,
-                                color: AppColors.neon,
+                                color: AppColors.of(context).neon,
                                 shadows: [
                                   Shadow(
-                                    color: AppColors.neon.withValues(
-                                      alpha: 0.6,
-                                    ),
+                                    color: AppColors.of(context).neon
+                                        .withValues(alpha: 0.6),
                                     blurRadius: 9,
                                   ),
                                   Shadow(
-                                    color: AppColors.neon.withValues(
-                                      alpha: 0.5,
-                                    ),
+                                    color: AppColors.of(context).neon
+                                        .withValues(alpha: 0.5),
                                     blurRadius: 16,
                                   ),
                                 ],
@@ -62,7 +60,7 @@ class WelcomeScreen extends StatelessWidget {
                                 style: GoogleFonts.poppins(
                                   fontSize: 40,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.dashboardText,
+                                  color: AppColors.of(context).dashboardText,
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -72,7 +70,7 @@ class WelcomeScreen extends StatelessWidget {
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   height: 1.5,
-                                  color: AppColors.textSecondary,
+                                  color: AppColors.of(context).textSecondary,
                                 ),
                               ),
                               const SizedBox(height: 40),
@@ -92,8 +90,10 @@ class WelcomeScreen extends StatelessWidget {
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.button,
-                                    foregroundColor: AppColors.background,
+                                    backgroundColor: AppColors.of(context)
+                                        .button,
+                                    foregroundColor: AppColors.of(context)
+                                        .background,
                                     minimumSize: const Size.fromHeight(56),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 20,
@@ -129,12 +129,13 @@ class WelcomeScreen extends StatelessWidget {
                                     );
                                   },
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.dashboardText,
+                                    foregroundColor: AppColors.of(context)
+                                        .dashboardText,
                                     backgroundColor: Colors.white.withValues(
                                       alpha: 0.04,
                                     ),
-                                    side: const BorderSide(
-                                      color: AppColors.outline,
+                                    side: BorderSide(
+                                      color: AppColors.of(context).outline,
                                     ),
                                     minimumSize: const Size.fromHeight(56),
                                     padding: const EdgeInsets.symmetric(

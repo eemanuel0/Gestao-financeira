@@ -20,10 +20,10 @@ class MonthSelector extends StatelessWidget {
       button: true,
       label: 'Selecionar mês',
       child: Material(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.of(context).fieldFill,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: AppColors.outline),
+          side: BorderSide(color: AppColors.of(context).outline),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -35,7 +35,7 @@ class MonthSelector extends StatelessWidget {
               children: [
                 Icon(
                   Icons.calendar_month_outlined,
-                  color: AppColors.dashboardText,
+                  color: AppColors.of(context).dashboardText,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -43,7 +43,7 @@ class MonthSelector extends StatelessWidget {
                   child: Text(
                     formatMonthYear(selectedMonth),
                     style: GoogleFonts.poppins(
-                      color: AppColors.dashboardText,
+                      color: AppColors.of(context).dashboardText,
                       fontSize: 13,
                     ),
                   ),
@@ -51,7 +51,7 @@ class MonthSelector extends StatelessWidget {
                 const SizedBox(width: 8),
                 Icon(
                   Icons.keyboard_arrow_down,
-                  color: AppColors.dashboardText,
+                  color: AppColors.of(context).dashboardText,
                   size: 22,
                 ),
               ],
@@ -64,16 +64,13 @@ class MonthSelector extends StatelessWidget {
 
   Future<void> _selectMonth(BuildContext context) async {
     final now = DateTime.now();
-
-    // DateTime ajusta automaticamente as viradas de ano.
     final months = List.generate(
       6,
       (index) => DateTime(now.year, now.month - index),
     );
-
     final selected = await showModalBottomSheet<DateTime>(
       context: context,
-      backgroundColor: AppColors.dashboardSurface,
+      backgroundColor: AppColors.of(context).dashboardSurface,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
@@ -93,7 +90,7 @@ class MonthSelector extends StatelessWidget {
                 child: Text(
                   'Selecione o mês',
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -107,8 +104,7 @@ class MonthSelector extends StatelessWidget {
                     for (final month in months)
                       ListTile(
                         key: ValueKey(
-                          'month-option-${month.year}-'
-                          '${month.month.toString().padLeft(2, '0')}',
+                          'month-option-${month.year}-${month.month.toString().padLeft(2, '0')}',
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -116,24 +112,24 @@ class MonthSelector extends StatelessWidget {
                         selected:
                             month.year == selectedMonth.year &&
                             month.month == selectedMonth.month,
-                        selectedTileColor: AppColors.neon.withValues(
-                          alpha: 0.08,
-                        ),
+                        selectedTileColor: AppColors.of(context).neon
+                            .withValues(alpha: 0.08),
                         title: Text(
                           formatMonthYear(month),
                           style: GoogleFonts.poppins(
-                            color: AppColors.dashboardText,
+                            color: AppColors.of(context).dashboardText,
                             fontSize: 13,
                           ),
                         ),
                         trailing:
                             month.year == selectedMonth.year &&
                                 month.month == selectedMonth.month
-                            ? Icon(Icons.check, color: AppColors.neon)
+                            ? Icon(
+                                Icons.check,
+                                color: AppColors.of(context).neon,
+                              )
                             : null,
-                        onTap: () {
-                          Navigator.of(sheetContext).pop(month);
-                        },
+                        onTap: () => Navigator.of(sheetContext).pop(month),
                       ),
                   ],
                 ),
@@ -143,9 +139,7 @@ class MonthSelector extends StatelessWidget {
         ),
       ),
     );
-
-    if (context.mounted && selected != null) {
-      onChanged(selected);
-    }
+    // O pai controla o mês e decide como usar a escolha.
+    if (context.mounted && selected != null) onChanged(selected);
   }
 }

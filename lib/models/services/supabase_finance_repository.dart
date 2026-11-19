@@ -1,13 +1,22 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../finance_transaction.dart';
+import '../financial_profile.dart';
 import 'finance_repository.dart';
 
 class SupabaseFinanceRepository implements FinanceRepository {
   final SupabaseClient _client;
+  final String profileId;
   static const int _pageSize = 500;
 
-  SupabaseFinanceRepository(this._client);
+  SupabaseFinanceRepository(
+    this._client, {
+    this.profileId = FinancialProfile.personalId,
+  }) {
+    if (profileId.trim().isEmpty || profileId != profileId.trim()) {
+      throw ArgumentError('O repositório precisa de um perfil válido.');
+    }
+  }
 
   // Reconsulta a nuvem sem depender da ativação do Supabase Realtime.
   @override
@@ -27,6 +36,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
             .from('transactions')
             .select()
             .eq('user_id', userId)
+            .eq('profile_id', profileId)
             .order('occurred_on', ascending: false)
             .order('created_at', ascending: false)
             .order('id')
@@ -35,7 +45,8 @@ class SupabaseFinanceRepository implements FinanceRepository {
 
         for (final row in page) {
           final transaction = FinanceTransaction.fromJson(row);
-          if (transaction.userId != userId) {
+          if (transaction.userId != userId ||
+              transaction.profileId != profileId) {
             throw const FinanceException(
               'Não foi possível carregar seus dados.',
             );
@@ -69,6 +80,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
       final transaction = FinanceTransaction(
         id: 'pending',
         userId: userId,
+        profileId: profileId,
         type: type,
         amountCents: amountCents,
         category: category,
@@ -117,11 +129,13 @@ class SupabaseFinanceRepository implements FinanceRepository {
           .update({'description': name})
           .eq('id', id)
           .eq('user_id', userId)
+          .eq('profile_id', profileId)
           .select()
           .single();
       _checkSession(userId);
       final updated = FinanceTransaction.fromJson(row);
       if (updated.userId != userId ||
+          updated.profileId != profileId ||
           updated.id != id ||
           updated.description != name) {
         throw const FinanceException(

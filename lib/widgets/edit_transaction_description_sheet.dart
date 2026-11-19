@@ -16,7 +16,7 @@ Future<String?> showEditTransactionDescriptionSheet(
     useSafeArea: true,
     isDismissible: false,
     enableDrag: false,
-    backgroundColor: AppColors.dashboardSurface,
+    backgroundColor: AppColors.of(context).dashboardSurface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -84,7 +84,7 @@ class _DescriptionSheetState extends State<_DescriptionSheet> {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.outline,
+                      color: AppColors.of(context).outline,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -93,7 +93,7 @@ class _DescriptionSheetState extends State<_DescriptionSheet> {
                 Text(
                   'Editar descrição',
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 21,
                     fontWeight: FontWeight.w600,
                   ),
@@ -115,35 +115,37 @@ class _DescriptionSheetState extends State<_DescriptionSheet> {
                   onChanged: (_) {
                     if (_error != null) setState(() => _error = null);
                   },
-                  cursorColor: AppColors.neon,
+                  cursorColor: AppColors.of(context).neon,
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
                     labelText: 'Descrição',
                     labelStyle: GoogleFonts.poppins(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                     ),
                     errorText: _error,
                     errorMaxLines: 4,
                     errorStyle: GoogleFonts.poppins(
-                      color: AppColors.dashboardExpense,
+                      color: AppColors.of(context).dashboardExpense,
                     ),
                     counterStyle: GoogleFonts.poppins(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                     ),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.04),
+                    fillColor: AppColors.of(context).fieldFill,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 18,
                     ),
-                    enabledBorder: border(AppColors.outline),
-                    disabledBorder: border(AppColors.outline),
-                    focusedBorder: border(AppColors.neon),
-                    errorBorder: border(AppColors.dashboardExpense),
-                    focusedErrorBorder: border(AppColors.dashboardExpense),
+                    enabledBorder: border(AppColors.of(context).outline),
+                    disabledBorder: border(AppColors.of(context).outline),
+                    focusedBorder: border(AppColors.of(context).neon),
+                    errorBorder: border(AppColors.of(context).dashboardExpense),
+                    focusedErrorBorder: border(
+                      AppColors.of(context).dashboardExpense,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -153,8 +155,8 @@ class _DescriptionSheetState extends State<_DescriptionSheet> {
                     key: const ValueKey('save-transaction-description'),
                     onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.button,
-                      foregroundColor: AppColors.background,
+                      backgroundColor: AppColors.of(context).button,
+                      foregroundColor: AppColors.of(context).background,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -175,7 +177,9 @@ class _DescriptionSheetState extends State<_DescriptionSheet> {
                   onPressed: _saving ? null : () => Navigator.of(context).pop(),
                   child: Text(
                     'Cancelar',
-                    style: GoogleFonts.poppins(color: AppColors.textSecondary),
+                    style: GoogleFonts.poppins(
+                      color: AppColors.of(context).textSecondary,
+                    ),
                   ),
                 ),
               ],

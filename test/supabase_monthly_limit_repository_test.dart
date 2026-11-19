@@ -84,8 +84,9 @@ void main() {
     expect(limit?.limitCents, 150000);
     expect(request.method, 'GET');
     expect(request.query['user_id'], 'eq.$_ownerA');
+    expect(request.query['profile_id'], 'eq.personal');
     expect(request.query['month'], 'eq.2026-11-01');
-    expect(request.query['select'], 'user_id,month,limit_cents');
+    expect(request.query['select'], 'user_id,profile_id,month,limit_cents');
     expect(request.authorization, startsWith('Bearer '));
   });
 
@@ -117,10 +118,11 @@ void main() {
     expect(saved.limitCents, 225050);
     expect(saved.monthKey, '2026-11-01');
     expect(request.method, 'POST');
-    expect(request.query['on_conflict'], 'user_id,month');
+    expect(request.query['on_conflict'], 'user_id,profile_id,month');
     expect(request.prefer, contains('resolution=merge-duplicates'));
     expect(request.body, {
       'user_id': _ownerA,
+      'profile_id': 'personal',
       'month': '2026-11-01',
       'limit_cents': 225050,
     });
@@ -219,13 +221,68 @@ void main() {
       await expectation;
     },
   );
+  test(
+    'limite empresarial usa perfil no filtro, payload e chave composta',
+    () async {
+      await authenticate();
+      final business = SupabaseMonthlyLimitRepository(
+        client,
+        profileId: 'business',
+      );
+      final saved = await business.saveForMonth(
+        month: november,
+        limitCents: 500000,
+      );
+      expect(saved.profileId, 'business');
+      expect(server.requests.last.body!['profile_id'], 'business');
+      expect(
+        server.requests.last.query['on_conflict'],
+        'user_id,profile_id,month',
+      );
+      server.readRows = [_limitRow(profileId: 'business', limitCents: 500000)];
+      final loaded = await business.loadForMonth(november);
+      expect(loaded?.profileId, 'business');
+      expect(server.requests.last.query['profile_id'], 'eq.business');
+      await expectLater(
+        repository.loadForMonth(november),
+        throwsA(isA<FinanceException>()),
+      );
+      server.readRows = [_limitRow()];
+      await expectLater(
+        business.loadForMonth(november),
+        throwsA(isA<FinanceException>()),
+      );
+      server.writeRow = _limitRow(limitCents: 500000);
+      await expectLater(
+        business.saveForMonth(month: november, limitCents: 500000),
+        throwsA(isA<FinanceException>()),
+      );
+    },
+  );
+
+  test('limite legado é pessoal e profile_id presente precisa ser válido', () {
+    final legacy = _limitRow()..remove('profile_id');
+    expect(MonthlyLimit.fromJson(legacy).profileId, 'personal');
+    for (final profileId in [null, '', ' ', 123, ' personal ']) {
+      expect(
+        () => MonthlyLimit.fromJson({...legacy, 'profile_id': profileId}),
+        throwsFormatException,
+      );
+    }
+  });
 }
 
 Map<String, dynamic> _limitRow({
   String userId = _ownerA,
+  String profileId = 'personal',
   String month = '2026-11-01',
   int limitCents = 150000,
-}) => {'user_id': userId, 'month': month, 'limit_cents': limitCents};
+}) => {
+  'user_id': userId,
+  'profile_id': profileId,
+  'month': month,
+  'limit_cents': limitCents,
+};
 
 class _LimitRequest {
   final String method;

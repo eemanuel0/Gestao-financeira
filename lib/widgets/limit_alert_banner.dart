@@ -13,18 +13,19 @@ class LimitAlertBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final exceeded = spent > limit;
-    final color = exceeded ? AppColors.dashboardExpense : AppColors.neon;
-
+    final color = exceeded
+        ? AppColors.of(context).dashboardExpense
+        : AppColors.of(context).neon;
     final border = exceeded
-        ? AppColors.limitExceededBorder
-        : AppColors.limitWithinBorder;
+        ? AppColors.of(context).limitExceededBorder
+        : AppColors.of(context).limitWithinBorder;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: exceeded
-            ? AppColors.limitExceededBackground
-            : AppColors.limitWithinBackground,
+            ? AppColors.of(context).limitExceededBackground
+            : AppColors.of(context).limitWithinBackground,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: border),
       ),
@@ -45,20 +46,19 @@ class LimitAlertBanner extends StatelessWidget {
                 Text(
                   exceeded ? 'Limite ultrapassado' : 'Dentro do limite',
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
-
-                // O mesmo widget calcula as duas mensagens.
+                // A mensagem acompanha o estado atual do mesmo widget.
                 Text(
                   exceeded
                       ? 'Você gastou ${formatBRL(spent - limit)} acima do limite.'
                       : 'Ainda restam ${formatBRL(limit - spent)} neste mês.',
                   style: GoogleFonts.poppins(
-                    color: AppColors.textSecondary,
+                    color: AppColors.of(context).textSecondary,
                     fontSize: 12,
                     height: 1.5,
                   ),

@@ -10,9 +10,12 @@ class GlowBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.background,
+      color: AppColors.of(context).background,
       child: CustomPaint(
-        painter: _GlowPainter(),
+        painter: _GlowPainter(
+          AppColors.of(context).neon,
+          Theme.of(context).brightness == Brightness.light,
+        ),
         size: Size.infinite,
         child: child,
       ),
@@ -21,6 +24,12 @@ class GlowBackground extends StatelessWidget {
 }
 
 class _GlowPainter extends CustomPainter {
+  final Color accent;
+  final bool light;
+  _GlowPainter(this.accent, this.light);
+  // No tema claro a decoração é suave para preservar o contraste dos valores.
+  double get strength => light ? 0.12 : 1;
+
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
@@ -35,8 +44,8 @@ class _GlowPainter extends CustomPainter {
           center: const Alignment(-1.1, -1.05),
           radius: 0.85,
           colors: [
-            AppColors.neon.withValues(alpha: 0.65),
-            AppColors.neon.withValues(alpha: 0.22),
+            accent.withValues(alpha: 0.65 * strength),
+            accent.withValues(alpha: 0.22 * strength),
             Colors.transparent,
           ],
           stops: const [0.0, 0.45, 1.0],
@@ -61,8 +70,8 @@ class _GlowPainter extends CustomPainter {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            AppColors.neon.withValues(alpha: 0.35),
-            AppColors.neon.withValues(alpha: 0.05),
+            accent.withValues(alpha: 0.35 * strength),
+            accent.withValues(alpha: 0.05 * strength),
             Colors.transparent,
           ],
           stops: const [0.0, 0.5, 1.0],
@@ -73,7 +82,7 @@ class _GlowPainter extends CustomPainter {
     canvas.drawPath(
       wave,
       Paint()
-        ..color = AppColors.neon.withValues(alpha: 0.5)
+        ..color = accent.withValues(alpha: 0.5 * strength)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 25),
@@ -81,5 +90,6 @@ class _GlowPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GlowPainter oldDelegate) =>
+      oldDelegate.accent != accent || oldDelegate.light != light;
 }

@@ -15,9 +15,9 @@ class CategoryTotalsTable extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.of(context).fieldFill,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
       ),
       child: Column(
         children: [
@@ -25,22 +25,22 @@ class CategoryTotalsTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             child: Row(
               children: [
-                Expanded(child: _text('Categoria', bold: true)),
-                _text('Total gasto', bold: true),
+                Expanded(child: _text(context, 'Categoria', bold: true)),
+                _text(context, 'Total gasto', bold: true),
               ],
             ),
           ),
-          _divider(),
+          _divider(context),
           for (var index = 0; index < categories.length; index++) ...[
-            _buildRow(categories[index]),
-            if (index < categories.length - 1) _divider(),
+            _buildRow(context, categories[index]),
+            if (index < categories.length - 1) _divider(context),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildRow(CategoryTotal category) {
+  Widget _buildRow(BuildContext context, CategoryTotal category) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
@@ -49,23 +49,23 @@ class CategoryTotalsTable extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
+              color: AppColors.of(context).fieldFill,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               category.icon,
-              color: AppColors.dashboardText,
+              color: AppColors.of(context).dashboardText,
               size: 25,
             ),
           ),
           const SizedBox(width: 10),
-          Expanded(child: _text(category.name)),
+          Expanded(child: _text(context, category.name)),
           const SizedBox(width: 8),
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
-              child: _text(formatBRL(category.total)),
+              child: _text(context, formatBRL(category.total)),
             ),
           ),
         ],
@@ -73,13 +73,13 @@ class CategoryTotalsTable extends StatelessWidget {
     );
   }
 
-  Widget _divider() =>
-      Divider(height: 1, thickness: 1, color: AppColors.outline);
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, thickness: 1, color: AppColors.of(context).outline);
 
-  Widget _text(String value, {bool bold = false}) => Text(
+  Widget _text(BuildContext context, String value, {bool bold = false}) => Text(
     value,
     style: GoogleFonts.poppins(
-      color: AppColors.dashboardText,
+      color: AppColors.of(context).dashboardText,
       fontSize: 13,
       fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
     ),

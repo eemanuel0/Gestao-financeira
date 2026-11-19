@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestao_financeira/models/finance_summary.dart';
 import 'package:gestao_financeira/models/finance_transaction.dart';
+import 'package:gestao_financeira/models/financial_profile.dart';
 
 FinanceTransaction transaction({
   String id = 'transaction-1',
   String userId = 'user-1',
+  String profileId = FinancialProfile.personalId,
   TransactionType type = TransactionType.expense,
   int amountCents = 100,
   TransactionCategory category = TransactionCategory.food,
@@ -14,6 +16,7 @@ FinanceTransaction transaction({
   return FinanceTransaction(
     id: id,
     userId: userId,
+    profileId: profileId,
     type: type,
     amountCents: amountCents,
     category: category,
@@ -31,10 +34,12 @@ void main() {
       final restored = FinanceTransaction.fromJson(json);
 
       expect(json['amount_cents'], 123456);
+      expect(json['profile_id'], FinancialProfile.personalId);
       expect(json['occurred_on'], '2026-11-16');
       expect(json['created_at'], '2026-11-16T12:00:00.000Z');
       expect(restored.id, original.id);
       expect(restored.userId, original.userId);
+      expect(restored.profileId, original.profileId);
       expect(restored.type, original.type);
       expect(restored.amountCents, original.amountCents);
       expect(restored.category, original.category);
@@ -42,6 +47,29 @@ void main() {
       expect(restored.occurredOn, original.occurredOn);
       expect(restored.createdAt, original.createdAt);
     });
+
+    test(
+      'dados legados pertencem ao pessoal e perfis inválidos são rejeitados',
+      () {
+        final legacy = transaction().toJson()..remove('profile_id');
+        expect(
+          FinanceTransaction.fromJson(legacy).profileId,
+          FinancialProfile.personalId,
+        );
+        final business = transaction(profileId: FinancialProfile.businessId);
+        expect(
+          FinanceTransaction.fromJson(business.toJson()).profileId,
+          FinancialProfile.businessId,
+        );
+        for (final value in [null, '', '   ', 42, ' personal ']) {
+          expect(
+            () => FinanceTransaction.fromJson({...legacy, 'profile_id': value}),
+            throwsFormatException,
+          );
+        }
+        expect(() => transaction(profileId: ''), throwsArgumentError);
+      },
+    );
 
     test('exige valor positivo dentro do limite', () {
       for (final cents in [0, -1, FinanceTransaction.maxAmountCents + 1]) {
@@ -106,6 +134,91 @@ void main() {
       expect(
         TransactionCategory.allowedFor(TransactionType.expense),
         isNot(contains(TransactionCategory.salary)),
+      );
+    });
+  });
+
+  group('FinancialProfile', () {
+    FinancialProfile profile(
+      String id, {
+      String userId = 'user-1',
+      String name = 'Empresa',
+    }) {
+      return FinancialProfile(
+        id: id,
+        userId: userId,
+        name: name,
+        kind: id == FinancialProfile.personalId
+            ? FinancialProfileKind.personal
+            : FinancialProfileKind.business,
+      );
+    }
+
+    test(
+      'preserva nome personalizado e seleciona perfil em lista imutável',
+      () {
+        final business = profile(
+          FinancialProfile.businessId,
+          name: '  Minha loja  ',
+        );
+        final state = FinancialProfileState(
+          profiles: [
+            profile(FinancialProfile.personalId, name: 'Pessoal'),
+            business,
+          ],
+          activeProfileId: FinancialProfile.businessId,
+        );
+        expect(state.activeProfile.name, 'Minha loja');
+        expect(FinancialProfile.fromJson(business.toJson()).name, 'Minha loja');
+        expect(state.profiles.clear, throwsUnsupportedError);
+      },
+    );
+
+    test('rejeita dono misturado, seleção inexistente e IDs repetidos', () {
+      final personal = profile(FinancialProfile.personalId);
+      final business = profile(FinancialProfile.businessId);
+      for (final entries in [
+        [personal, personal, business],
+        [personal, profile(FinancialProfile.businessId, userId: 'user-2')],
+        [personal],
+      ]) {
+        expect(
+          () => FinancialProfileState(
+            profiles: entries,
+            activeProfileId: FinancialProfile.personalId,
+          ),
+          throwsArgumentError,
+        );
+      }
+      expect(
+        () => FinancialProfileState(
+          profiles: [personal, business],
+          activeProfileId: 'missing',
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('valida nome e compatibilidade entre ID pessoal e tipo', () {
+      expect(
+        () => profile(FinancialProfile.businessId, name: ' '),
+        throwsArgumentError,
+      );
+      expect(
+        () => profile(
+          FinancialProfile.businessId,
+          name: List.filled(61, 'a').join(),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => FinancialProfile.fromJson({
+          'id': 'personal',
+          'user_id': 'user-1',
+          'name': 'Pessoal',
+          'kind': 'business',
+        }),
+        throwsFormatException,
       );
     });
   });
@@ -215,6 +328,18 @@ void main() {
           occurredOn: DateTime(2025, 11, 16),
         ),
         transaction(id: 'other-user', userId: 'user-2', amountCents: 80000),
+        transaction(
+          id: 'business-expense',
+          profileId: FinancialProfile.businessId,
+          amountCents: 3000,
+        ),
+        transaction(
+          id: 'business-income',
+          profileId: FinancialProfile.businessId,
+          type: TransactionType.income,
+          category: TransactionCategory.services,
+          amountCents: 100000,
+        ),
       ];
       final november = FinanceSummary.forMonth(
         transactions,
@@ -224,6 +349,15 @@ void main() {
       expect(november.expenseCents, 20000);
       expect(november.incomeCents, 50000);
       expect(november.expenseTotals, {TransactionCategory.food: 20000});
+      final business = FinanceSummary.forMonth(
+        transactions,
+        userId: 'user-1',
+        month: DateTime(2026, 11),
+        profileId: FinancialProfile.businessId,
+      );
+      expect(business.expenseCents, 3000);
+      expect(business.incomeCents, 100000);
+      expect(business.balanceCents, 97000);
 
       final october = FinanceSummary.forMonth(
         transactions,

@@ -14,6 +14,5 @@ String formatMonthYear(DateTime date) {
     'Novembro',
     'Dezembro',
   ];
-
   return '${months[date.month - 1]} de ${date.year}';
 }

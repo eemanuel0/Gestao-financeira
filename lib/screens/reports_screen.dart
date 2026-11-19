@@ -21,6 +21,8 @@ import '../widgets/spending_limit_card.dart';
 // Recebe a mesma lista de lançamentos usada pelo Início e pelo histórico.
 class ReportsScreen extends StatefulWidget {
   final String userId;
+  final String profileId;
+  final bool showHeader;
   final List<FinanceTransaction> transactions;
   final MonthlyLimitRepository? limitRepository;
   final bool isLoading;
@@ -32,6 +34,8 @@ class ReportsScreen extends StatefulWidget {
     super.key,
     required this.userId,
     required this.transactions,
+    this.profileId = 'personal',
+    this.showHeader = true,
     this.limitRepository,
     this.isLoading = false,
     this.loadError,
@@ -64,7 +68,10 @@ class _ReportsScreenState extends State<ReportsScreen>
   void didUpdateWidget(covariant ReportsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     final changedAccount = oldWidget.userId != widget.userId;
-    if (changedAccount || oldWidget.limitRepository != widget.limitRepository) {
+    final changedProfile = oldWidget.profileId != widget.profileId;
+    if (changedAccount ||
+        changedProfile ||
+        oldWidget.limitRepository != widget.limitRepository) {
       _limitGeneration++;
       _limit = null;
       _limitError = null;
@@ -75,6 +82,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       }
     }
     if (changedAccount ||
+        changedProfile ||
         oldWidget.limitRepository != widget.limitRepository ||
         oldWidget.isActive != widget.isActive) {
       _startLimitUpdates();
@@ -113,6 +121,7 @@ class _ReportsScreenState extends State<ReportsScreen>
     final generation = ++_limitGeneration;
     final month = _selectedMonth;
     final userId = widget.userId;
+    final profileId = widget.profileId;
     setState(() {
       _limitLoading = true;
       _limitError = null;
@@ -127,11 +136,14 @@ class _ReportsScreenState extends State<ReportsScreen>
       final limit = await repository.loadForMonth(month);
       if (!mounted ||
           generation != _limitGeneration ||
-          widget.userId != userId) {
+          widget.userId != userId ||
+          widget.profileId != profileId) {
         return;
       }
       if (limit != null &&
-          (limit.userId != userId || !_sameMonth(limit.month, month))) {
+          (limit.userId != userId ||
+              limit.profileId != profileId ||
+              !_sameMonth(limit.month, month))) {
         throw const FinanceException(
           'Não foi possível carregar o limite desta conta.',
         );
@@ -140,7 +152,8 @@ class _ReportsScreenState extends State<ReportsScreen>
     } catch (error) {
       if (!mounted ||
           generation != _limitGeneration ||
-          widget.userId != userId) {
+          widget.userId != userId ||
+          widget.profileId != profileId) {
         return;
       }
       setState(() {
@@ -152,7 +165,8 @@ class _ReportsScreenState extends State<ReportsScreen>
     } finally {
       if (mounted &&
           generation == _limitGeneration &&
-          widget.userId == userId) {
+          widget.userId == userId &&
+          widget.profileId == profileId) {
         setState(() => _limitLoading = false);
       }
     }
@@ -186,6 +200,7 @@ class _ReportsScreenState extends State<ReportsScreen>
     }
     final month = _selectedMonth;
     final userId = widget.userId;
+    final profileId = widget.profileId;
     setState(() {
       _editing = true;
       _limitGeneration++;
@@ -197,6 +212,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         onSave: (value) async {
           if (!mounted ||
               widget.userId != userId ||
+              widget.profileId != profileId ||
               !identical(widget.limitRepository, repository) ||
               !_sameMonth(month, _selectedMonth)) {
             throw const FinanceException('Sua sessão mudou. Entre novamente.');
@@ -207,11 +223,14 @@ class _ReportsScreenState extends State<ReportsScreen>
           );
           if (!mounted ||
               widget.userId != userId ||
+              widget.profileId != profileId ||
               !identical(widget.limitRepository, repository) ||
               !_sameMonth(month, _selectedMonth)) {
             throw const FinanceException('Sua sessão mudou. Entre novamente.');
           }
-          if (record.userId != userId || !_sameMonth(record.month, month)) {
+          if (record.userId != userId ||
+              record.profileId != profileId ||
+              !_sameMonth(record.month, month)) {
             throw const FinanceException(
               'Não foi possível salvar seu limite mensal.',
             );
@@ -223,11 +242,17 @@ class _ReportsScreenState extends State<ReportsScreen>
           });
         },
       );
-      if (!mounted || saved == null || widget.userId != userId) return;
+      if (!mounted ||
+          saved == null ||
+          widget.userId != userId ||
+          widget.profileId != profileId) {
+        return;
+      }
       final summary = FinanceSummary.forMonth(
         widget.transactions,
         userId: userId,
         month: month,
+        profileId: profileId,
       );
       final limit = _limit;
       if (limit != null && summary.expenseCents > limit.limitCents) {
@@ -251,6 +276,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       widget.transactions,
       userId: widget.userId,
       month: _selectedMonth,
+      profileId: widget.profileId,
     );
     final categories = summary.expenseTotals.entries
         .map(
@@ -270,25 +296,31 @@ class _ReportsScreenState extends State<ReportsScreen>
         constraints: const BoxConstraints(maxWidth: 520),
         child: RefreshIndicator(
           onRefresh: _refresh,
-          color: AppColors.neon,
-          backgroundColor: AppColors.dashboardSurface,
+          color: AppColors.of(context).neon,
+          backgroundColor: AppColors.of(context).dashboardSurface,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const AppHeader(),
-                const SizedBox(height: 24),
+                if (widget.showHeader) ...[
+                  const AppHeader(),
+                  const SizedBox(height: 24),
+                ],
                 Row(
                   children: [
-                    Icon(Icons.bar_chart, color: AppColors.neon, size: 32),
+                    Icon(
+                      Icons.bar_chart,
+                      color: AppColors.of(context).neon,
+                      size: 32,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Relatórios',
                         style: GoogleFonts.poppins(
-                          color: AppColors.dashboardText,
+                          color: AppColors.of(context).dashboardText,
                           fontSize: 26,
                           fontWeight: FontWeight.w600,
                         ),
@@ -305,7 +337,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                 Text(
                   'Controle de gastos',
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 21,
                     fontWeight: FontWeight.w600,
                   ),
@@ -314,7 +346,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                 if (widget.loadError != null) ...[
                   Text(
                     widget.loadError!,
-                    style: GoogleFonts.poppins(color: AppColors.textSecondary),
+                    style: GoogleFonts.poppins(
+                      color: AppColors.of(context).textSecondary,
+                    ),
                   ),
                   TextButton(
                     onPressed: _refresh,
@@ -324,7 +358,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                   const Center(child: CircularProgressIndicator()),
                 ] else ...[
                   if (widget.isLoading) ...[
-                    LinearProgressIndicator(color: AppColors.neon),
+                    LinearProgressIndicator(color: AppColors.of(context).neon),
                     const SizedBox(height: 12),
                   ],
                   SpendingLimitCard(
@@ -349,7 +383,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                     Text(
                       'Você ainda não tem despesas neste mês.',
                       style: GoogleFonts.poppins(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                     )
                   else

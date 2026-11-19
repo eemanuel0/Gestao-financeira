@@ -38,6 +38,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_fonts: ^9.0.0
   supabase_flutter: ^2.18.3
+  image_picker: ^1.2.4
+  # Guarda a preferência de aparência neste dispositivo.
+  shared_preferences: ^2.5.6
+  # Requisições de recuperação sem compartilhar sessões de autenticação.
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

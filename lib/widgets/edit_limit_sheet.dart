@@ -15,7 +15,7 @@ Future<double?> showEditLimitSheet(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: AppColors.dashboardSurface,
+    backgroundColor: AppColors.of(context).dashboardSurface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -86,7 +86,7 @@ class _EditLimitSheetState extends State<_EditLimitSheet> {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.outline,
+                      color: AppColors.of(context).outline,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -95,7 +95,7 @@ class _EditLimitSheetState extends State<_EditLimitSheet> {
                 Text(
                   'Editar limite mensal',
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 21,
                     fontWeight: FontWeight.w600,
                   ),
@@ -115,41 +115,43 @@ class _EditLimitSheetState extends State<_EditLimitSheet> {
                   onChanged: (_) {
                     if (_error != null) setState(() => _error = null);
                   },
-                  cursorColor: AppColors.neon,
+                  cursorColor: AppColors.of(context).neon,
                   style: GoogleFonts.poppins(
-                    color: AppColors.dashboardText,
+                    color: AppColors.of(context).dashboardText,
                     fontSize: 22,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     labelText: 'Limite de gastos',
                     labelStyle: GoogleFonts.poppins(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                       fontSize: 14,
                     ),
                     helperText:
                         'Você recebe um alerta ao ultrapassar esse valor.',
                     helperMaxLines: 2,
                     helperStyle: GoogleFonts.poppins(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                       fontSize: 12,
                     ),
                     errorText: _error,
                     errorMaxLines: 4,
                     errorStyle: GoogleFonts.poppins(
-                      color: AppColors.dashboardExpense,
+                      color: AppColors.of(context).dashboardExpense,
                     ),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.04),
+                    fillColor: AppColors.of(context).fieldFill,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 20,
                     ),
-                    enabledBorder: border(AppColors.outline),
-                    disabledBorder: border(AppColors.outline),
-                    focusedBorder: border(AppColors.neon),
-                    errorBorder: border(AppColors.dashboardExpense),
-                    focusedErrorBorder: border(AppColors.dashboardExpense),
+                    enabledBorder: border(AppColors.of(context).outline),
+                    disabledBorder: border(AppColors.of(context).outline),
+                    focusedBorder: border(AppColors.of(context).neon),
+                    errorBorder: border(AppColors.of(context).dashboardExpense),
+                    focusedErrorBorder: border(
+                      AppColors.of(context).dashboardExpense,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 26),
@@ -159,8 +161,8 @@ class _EditLimitSheetState extends State<_EditLimitSheet> {
                     key: const ValueKey('save-spending-limit'),
                     onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.button,
-                      foregroundColor: AppColors.background,
+                      backgroundColor: AppColors.of(context).button,
+                      foregroundColor: AppColors.of(context).background,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),

@@ -31,29 +31,37 @@ class AppBottomNav extends StatelessWidget {
             bottom: 0,
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.dashboardSurface,
+                color: AppColors.of(context).dashboardSurface,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(24),
                 ),
-                border: Border.all(color: AppColors.outline),
+                border: Border.all(color: AppColors.of(context).outline),
               ),
               child: SafeArea(
                 top: false,
                 child: Row(
                   children: [
-                    _buildTab(index: 0, label: 'Início', icon: Icons.home),
                     _buildTab(
+                      context,
+                      index: 0,
+                      label: 'Início',
+                      icon: Icons.home,
+                    ),
+                    _buildTab(
+                      context,
                       index: 1,
                       label: 'Relatórios',
                       icon: Icons.bar_chart,
                     ),
                     const SizedBox(width: 64),
                     _buildTab(
+                      context,
                       index: 2,
                       label: 'Lançamentos',
                       icon: Icons.receipt_long_outlined,
                     ),
                     _buildTab(
+                      context,
                       index: 3,
                       label: 'Perfil',
                       icon: Icons.person_outline,
@@ -72,7 +80,7 @@ class AppBottomNav extends StatelessWidget {
                 label: 'Adicionar lançamento',
                 button: true,
                 child: Material(
-                  color: AppColors.neon,
+                  color: AppColors.of(context).neon,
                   shape: const CircleBorder(),
                   child: InkWell(
                     key: const ValueKey('add-transaction'),
@@ -83,7 +91,7 @@ class AppBottomNav extends StatelessWidget {
                       height: 56,
                       child: Icon(
                         Icons.add,
-                        color: AppColors.background,
+                        color: AppColors.of(context).background,
                         size: 30,
                       ),
                     ),
@@ -97,14 +105,17 @@ class AppBottomNav extends StatelessWidget {
     );
   }
 
-  Widget _buildTab({
+  Widget _buildTab(
+    BuildContext context, {
     required int index,
     required String label,
     required IconData icon,
   }) {
     final isSelected = selectedIndex == index;
 
-    final color = isSelected ? AppColors.neon : AppColors.textSecondary;
+    final color = isSelected
+        ? AppColors.of(context).neon
+        : AppColors.of(context).textSecondary;
 
     return Expanded(
       child: Semantics(

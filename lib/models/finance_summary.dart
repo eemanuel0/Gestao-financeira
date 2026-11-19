@@ -1,9 +1,11 @@
 import 'category_spending.dart';
 import 'finance_transaction.dart';
+import 'financial_profile.dart';
 
 class FinanceSummary {
   final int incomeCents;
   final int expenseCents;
+  final int revenueCents;
   final List<CategorySpending> categories;
   final Map<TransactionCategory, int> expenseTotals;
 
@@ -12,6 +14,7 @@ class FinanceSummary {
   const FinanceSummary._({
     required this.incomeCents,
     required this.expenseCents,
+    required this.revenueCents,
     required this.categories,
     required this.expenseTotals,
   });
@@ -21,12 +24,14 @@ class FinanceSummary {
     List<FinanceTransaction> transactions, {
     required String userId,
     required DateTime month,
+    String profileId = FinancialProfile.personalId,
   }) {
     return FinanceSummary.fromTransactions(
       transactions
           .where(
             (transaction) =>
                 transaction.userId == userId &&
+                transaction.profileId == profileId &&
                 transaction.occurredOn.year == month.year &&
                 transaction.occurredOn.month == month.month,
           )
@@ -39,11 +44,16 @@ class FinanceSummary {
   ) {
     var income = 0;
     var expenses = 0;
+    var revenue = 0;
     final totalsByCategory = <TransactionCategory, int>{};
 
     for (final transaction in transactions) {
       if (transaction.type == TransactionType.income) {
         income += transaction.amountCents;
+        if (transaction.category == TransactionCategory.sales ||
+            transaction.category == TransactionCategory.services) {
+          revenue += transaction.amountCents;
+        }
       } else {
         expenses += transaction.amountCents;
         totalsByCategory.update(
@@ -66,6 +76,7 @@ class FinanceSummary {
     return FinanceSummary._(
       incomeCents: income,
       expenseCents: expenses,
+      revenueCents: revenue,
       expenseTotals: Map<TransactionCategory, int>.unmodifiable(
         Map<TransactionCategory, int>.fromEntries(sortedCategories),
       ),

@@ -3,9 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/app_colors.dart';
 import '../models/finance_transaction.dart';
+import '../models/financial_profile.dart';
 import '../models/services/finance_repository.dart';
-import '../utils/formatters.dart';
 import '../utils/currency_input_formatter.dart';
+import '../utils/formatters.dart';
 
 // O formulário devolve os dados; a tela anterior faz a gravação.
 class NewTransactionData {
@@ -27,8 +28,14 @@ class NewTransactionData {
 class AddTransactionScreen extends StatefulWidget {
   final TransactionType? initialType;
   final Future<void> Function(NewTransactionData data)? onSave;
+  final String profileId;
 
-  const AddTransactionScreen({super.key, this.initialType, this.onSave});
+  const AddTransactionScreen({
+    super.key,
+    this.initialType,
+    this.onSave,
+    this.profileId = FinancialProfile.personalId,
+  });
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -51,6 +58,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant AddTransactionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profileId != widget.profileId) _category = null;
+  }
+
+  @override
   void dispose() {
     _amountController.dispose();
     _descriptionController.dispose();
@@ -61,15 +74,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final categories = _type == null
         ? <TransactionCategory>[]
-        : TransactionCategory.allowedFor(_type!);
+        : TransactionCategory.allowedFor(_type!, profileId: widget.profileId);
+    final isBusiness = widget.profileId != FinancialProfile.personalId;
 
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.of(context).background,
         appBar: AppBar(
-          backgroundColor: AppColors.background,
-          foregroundColor: AppColors.dashboardText,
+          backgroundColor: AppColors.of(context).background,
+          foregroundColor: AppColors.of(context).dashboardText,
           title: Text(
             'Novo lançamento',
             style: GoogleFonts.poppins(
@@ -94,9 +108,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Informe os dados da sua receita ou despesa.',
+                          isBusiness
+                              ? 'Informe os dados da entrada ou saída da empresa.'
+                              : 'Informe os dados da sua receita ou despesa.',
                           style: GoogleFonts.poppins(
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                             fontSize: 13,
                           ),
                         ),
@@ -107,14 +123,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           key: const ValueKey('transaction-type'),
                           initialValue: _type,
                           isExpanded: true,
-                          dropdownColor: AppColors.dashboardSurface,
+                          dropdownColor: AppColors.of(context).dashboardSurface,
                           style: _fieldStyle,
                           decoration: _decoration('Tipo', Icons.swap_vert),
                           hint: Text('Selecione', style: _hintStyle),
                           items: TransactionType.values.map((type) {
                             return DropdownMenuItem(
                               value: type,
-                              child: Text(type.label, style: _fieldStyle),
+                              child: Text(
+                                type.labelForProfile(widget.profileId),
+                                style: _fieldStyle,
+                              ),
                             );
                           }).toList(),
                           onChanged: (type) {
@@ -130,7 +149,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ),
                         const SizedBox(height: 18),
 
-                        // O valor só é convertido para centavos ao validar.
+                        // Compartilha a mesma digitação em centavos do limite.
                         TextFormField(
                           key: const ValueKey('transaction-amount'),
                           controller: _amountController,
@@ -138,7 +157,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           inputFormatters: [CurrencyInputFormatter()],
                           textInputAction: TextInputAction.next,
                           style: _fieldStyle,
-                          cursorColor: AppColors.neon,
+                          cursorColor: AppColors.of(context).neon,
                           decoration:
                               _decoration(
                                 'Valor',
@@ -148,7 +167,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                 prefixStyle: _fieldStyle,
                                 hintText: 'Digite o valor',
                                 helperText: 'Digite os números; os centavos são preenchidos automaticamente.',
-
                                 helperStyle: _hintStyle,
                                 helperMaxLines: 2,
                               ),
@@ -168,39 +186,46 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ),
                         const SizedBox(height: 18),
 
-                        DropdownButtonFormField<TransactionCategory>(
-                          // Recria a seleção quando o tipo é alterado.
-                          key: ValueKey('transaction-category-${_type?.name}'),
-                          initialValue: _category,
-                          isExpanded: true,
-                          dropdownColor: AppColors.dashboardSurface,
-                          style: _fieldStyle,
-                          decoration: _decoration(
-                            'Categoria',
-                            Icons.category_outlined,
+                        KeyedSubtree(
+                          key: ValueKey('category-profile-${widget.profileId}'),
+                          child: DropdownButtonFormField<TransactionCategory>(
+                            // Recria a seleção quando o tipo é alterado.
+                            key: ValueKey(
+                              'transaction-category-${_type?.name}',
+                            ),
+                            initialValue: _category,
+                            isExpanded: true,
+                            dropdownColor: AppColors.of(context)
+                                .dashboardSurface,
+                            style: _fieldStyle,
+                            decoration: _decoration(
+                              'Categoria',
+                              Icons.category_outlined,
+                            ),
+                            hint: Text(
+                              _type == null
+                                  ? 'Escolha o tipo primeiro'
+                                  : 'Selecione',
+                              style: _hintStyle,
+                            ),
+                            items: categories.map((category) {
+                              return DropdownMenuItem(
+                                value: category,
+                                child: Text(category.label, style: _fieldStyle),
+                              );
+                            }).toList(),
+                            onChanged: _type == null
+                                ? null
+                                : (category) {
+                                    setState(() => _category = category);
+                                  },
+                            validator: (category) {
+                              return category == null ||
+                                      !categories.contains(category)
+                                  ? 'Selecione a categoria.'
+                                  : null;
+                            },
                           ),
-                          hint: Text(
-                            _type == null
-                                ? 'Escolha o tipo primeiro'
-                                : 'Selecione',
-                            style: _hintStyle,
-                          ),
-                          items: categories.map((category) {
-                            return DropdownMenuItem(
-                              value: category,
-                              child: Text(category.label, style: _fieldStyle),
-                            );
-                          }).toList(),
-                          onChanged: _type == null
-                              ? null
-                              : (category) {
-                                  setState(() => _category = category);
-                                },
-                          validator: (category) {
-                            return category == null
-                                ? 'Selecione a categoria.'
-                                : null;
-                          },
                         ),
                         const SizedBox(height: 18),
 
@@ -208,7 +233,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           key: const ValueKey('transaction-description'),
                           controller: _descriptionController,
                           style: _fieldStyle,
-                          cursorColor: AppColors.neon,
+                          cursorColor: AppColors.of(context).neon,
                           textCapitalization: TextCapitalization.sentences,
                           minLines: 1,
                           maxLines: 3,
@@ -253,8 +278,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           key: const ValueKey('submit-transaction'),
                           onPressed: _saving ? null : _submit,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.button,
-                            foregroundColor: AppColors.background,
+                            backgroundColor: AppColors.of(context).button,
+                            foregroundColor: AppColors.of(context).background,
                             minimumSize: const Size.fromHeight(54),
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
@@ -285,11 +310,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  TextStyle get _fieldStyle =>
-      GoogleFonts.poppins(color: AppColors.dashboardText, fontSize: 14);
+  TextStyle get _fieldStyle => GoogleFonts.poppins(
+    color: AppColors.of(context).dashboardText,
+    fontSize: 14,
+  );
 
-  TextStyle get _hintStyle =>
-      GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 12);
+  TextStyle get _hintStyle => GoogleFonts.poppins(
+    color: AppColors.of(context).textSecondary,
+    fontSize: 12,
+  );
 
   InputDecoration _decoration(String label, IconData icon) {
     OutlineInputBorder border(Color color) => OutlineInputBorder(
@@ -301,16 +330,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       labelText: label,
       labelStyle: _hintStyle,
       hintStyle: _hintStyle,
-      errorStyle: GoogleFonts.poppins(color: AppColors.dashboardExpense),
+      errorStyle: GoogleFonts.poppins(
+        color: AppColors.of(context).dashboardExpense,
+      ),
       errorMaxLines: 3,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.04),
-      prefixIcon: Icon(icon, color: AppColors.textSecondary),
-      border: border(AppColors.outline),
-      enabledBorder: border(AppColors.outline),
-      focusedBorder: border(AppColors.neon),
-      errorBorder: border(AppColors.dashboardExpense),
-      focusedErrorBorder: border(AppColors.dashboardExpense),
+      fillColor: AppColors.of(context).fieldFill,
+      prefixIcon: Icon(icon, color: AppColors.of(context).textSecondary),
+      border: border(AppColors.of(context).outline),
+      enabledBorder: border(AppColors.of(context).outline),
+      focusedBorder: border(AppColors.of(context).neon),
+      errorBorder: border(AppColors.of(context).dashboardExpense),
+      focusedErrorBorder: border(AppColors.of(context).dashboardExpense),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
     );
   }

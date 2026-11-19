@@ -5,8 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/app_colors.dart';
 import '../models/app_user.dart';
+import '../models/business_profile_data.dart';
 import '../models/finance_summary.dart';
 import '../models/finance_transaction.dart';
+import '../models/financial_profile.dart';
 import '../models/services/account_service.dart';
 import '../models/services/finance_repository.dart';
 import '../models/services/monthly_limit_repository.dart';
@@ -20,12 +22,22 @@ import '../widgets/edit_transaction_description_sheet.dart';
 import '../widgets/summary_card.dart';
 import 'add_transaction_screen.dart';
 import 'reports_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final AppUser user;
   final AccountService accountService;
   final FinanceRepository repository;
   final MonthlyLimitRepository? monthlyLimitRepository;
+  final FinancialProfile? financialProfile;
+  final ValueChanged<String>? onProfileSelected;
+  final bool isSwitchingProfile;
+  final Future<FinancialProfile> Function(String name)? onRenameBusiness;
+  final Future<void> Function(String name)? onSavePersonalName;
+  final Future<void> Function(BusinessProfileData data)? onSaveBusinessDetails;
+  final Future<void> Function()? onChooseProfilePhoto;
+  final Future<void> Function()? onRemoveProfilePhoto;
+  final Future<void> Function()? onRefreshProfile;
 
   const HomeScreen({
     super.key,
@@ -33,6 +45,15 @@ class HomeScreen extends StatefulWidget {
     required this.accountService,
     required this.repository,
     this.monthlyLimitRepository,
+    this.financialProfile,
+    this.onProfileSelected,
+    this.isSwitchingProfile = false,
+    this.onRenameBusiness,
+    this.onSavePersonalName,
+    this.onSaveBusinessDetails,
+    this.onChooseProfilePhoto,
+    this.onRemoveProfilePhoto,
+    this.onRefreshProfile,
   });
 
   @override
@@ -52,6 +73,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool get _sessionMatches =>
       widget.accountService.currentUser?.id == widget.user.id;
+  String get _profileId =>
+      widget.financialProfile?.id ?? FinancialProfile.personalId;
 
   @override
   void initState() {
@@ -66,12 +89,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.user.id != widget.user.id ||
         oldWidget.repository != widget.repository ||
+        oldWidget.financialProfile?.id != widget.financialProfile?.id ||
         oldWidget.accountService != widget.accountService) {
-      // Descarta dados e respostas da conta anterior.
+      // Descarta dados e respostas da conta ou perfil anterior.
       _loadGeneration++;
       _transactions = const [];
       _loadError = null;
-      _selectedIndex = 0;
+      if (oldWidget.user.id != widget.user.id) _selectedIndex = 0;
       _changesSubscription?.cancel();
       _listenForChanges();
       unawaited(_loadTransactions());
@@ -100,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // Só publica respostas atuais e pertencentes à sessão autenticada.
   Future<void> _loadTransactions() async {
-    if (!mounted || _isSigningOut) return;
+    if (!mounted || _isSigningOut || widget.isSwitchingProfile) return;
     final generation = ++_loadGeneration;
     if (!_sessionMatches) {
       setState(() {
@@ -118,7 +142,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final loaded = await widget.repository.loadTransactions();
       if (!mounted || generation != _loadGeneration) return;
       if (!_sessionMatches ||
-          loaded.any((transaction) => transaction.userId != widget.user.id)) {
+          loaded.any(
+            (transaction) =>
+                transaction.userId != widget.user.id ||
+                transaction.profileId != _profileId,
+          )) {
         throw const FinanceException(
           'Não foi possível carregar os dados desta conta. Entre novamente.',
         );
@@ -149,22 +177,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _openAddTransaction() async {
     if (_isOpeningForm ||
         _isEditingDescription ||
+        widget.isSwitchingProfile ||
         _isSigningOut ||
         !_sessionMatches) {
       return;
     }
     _isOpeningForm = true;
     final userId = widget.user.id;
+    final profileId = _profileId;
     final repository = widget.repository;
     bool sameAccount() =>
         mounted &&
         _sessionMatches &&
+        !widget.isSwitchingProfile &&
+        _profileId == profileId &&
         widget.user.id == userId &&
         identical(widget.repository, repository);
     try {
       final saved = await Navigator.of(context).push<NewTransactionData>(
         MaterialPageRoute(
           builder: (_) => AddTransactionScreen(
+            profileId: profileId,
             onSave: (data) async {
               // O formulário aberto por uma conta não grava em outra.
               if (!sameAccount() || _isSigningOut) {
@@ -201,16 +234,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   ) async {
     if (_isEditingDescription ||
         _isOpeningForm ||
+        widget.isSwitchingProfile ||
         _isSigningOut ||
         !_sessionMatches) {
       return;
     }
     final userId = widget.user.id;
-    if (transaction.userId != userId) return;
+    final profileId = _profileId;
+    if (transaction.userId != userId || transaction.profileId != profileId) {
+      return;
+    }
     final repository = widget.repository;
     bool sameAccount() =>
         mounted &&
         _sessionMatches &&
+        !widget.isSwitchingProfile &&
+        _profileId == profileId &&
         !_isSigningOut &&
         widget.user.id == userId &&
         identical(widget.repository, repository);
@@ -232,6 +271,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           }
           if (updated.id != transaction.id ||
               updated.userId != userId ||
+              updated.profileId != profileId ||
               updated.description != description.trim()) {
             throw const FinanceException(
               'Não foi possível confirmar a alteração. Atualize seus lançamentos.',
@@ -275,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _showSavedTransactionMessage(NewTransactionData saved) async {
     final limits = widget.monthlyLimitRepository;
     final userId = widget.user.id;
+    final profileId = _profileId;
     if (saved.type != TransactionType.expense || limits == null) {
       _showMessage('Lançamento adicionado com sucesso.');
       return;
@@ -287,9 +328,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     try {
       final limit = await limits.loadForMonth(saved.occurredOn);
-      if (!mounted || !_sessionMatches || widget.user.id != userId) return;
+      if (!mounted ||
+          !_sessionMatches ||
+          widget.user.id != userId ||
+          _profileId != profileId ||
+          widget.isSwitchingProfile) {
+        return;
+      }
       if (limit != null &&
           (limit.userId != userId ||
+              limit.profileId != profileId ||
               limit.month.year != saved.occurredOn.year ||
               limit.month.month != saved.occurredOn.month)) {
         throw const FinanceException(
@@ -300,6 +348,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _transactions,
         userId: userId,
         month: saved.occurredOn,
+        profileId: profileId,
       );
       if (limit != null && summary.expenseCents > limit.limitCents) {
         final excess = summary.expenseCents - limit.limitCents;
@@ -312,7 +361,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
     } catch (_) {
       // A despesa já foi salva; uma falha no limite não deve sugerir novo envio.
-      if (mounted && _sessionMatches && widget.user.id == userId) {
+      if (mounted &&
+          _sessionMatches &&
+          widget.user.id == userId &&
+          _profileId == profileId &&
+          !widget.isSwitchingProfile) {
         _showMessage(
           'Lançamento salvo. Não foi possível verificar o limite agora.',
         );
@@ -348,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          backgroundColor: AppColors.dashboardSurface,
+          backgroundColor: AppColors.of(context).dashboardSurface,
           content: _text(message),
         ),
       );
@@ -359,11 +412,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Oculta dados enquanto a raiz troca de sessão.
     if (!_sessionMatches || _isSigningOut) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.of(context).background,
         body: SafeArea(
           child: Center(
             child: _isSigningOut
-                ? CircularProgressIndicator(color: AppColors.neon)
+                ? CircularProgressIndicator(color: AppColors.of(context).neon)
                 : _text('Sua sessão foi encerrada.', secondary: true),
           ),
         ),
@@ -371,29 +424,92 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     final summary = FinanceSummary.fromTransactions(_transactions);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       bottomNavigationBar: AppBottomNav(
         selectedIndex: _selectedIndex,
-        onTabSelected: (index) => setState(() => _selectedIndex = index),
+        onTabSelected: (index) {
+          if (!widget.isSwitchingProfile) {
+            setState(() => _selectedIndex = index);
+            if (index == 3 && widget.onRefreshProfile != null) {
+              unawaited(widget.onRefreshProfile!());
+            }
+          }
+        },
         onAddPressed: _openAddTransaction,
       ),
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(
-          index: _selectedIndex,
+        child: Column(
           children: [
-            _buildDashboard(summary),
-            ReportsScreen(
-              userId: widget.user.id,
-              transactions: _transactions,
-              limitRepository: widget.monthlyLimitRepository,
-              isLoading: _isLoading,
-              loadError: _loadError,
-              onRefresh: _loadTransactions,
-              isActive: _selectedIndex == 1,
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+                  child: AppHeader(
+                    selectedProfileId: _profileId,
+                    onProfileSelected: widget.onProfileSelected,
+                    isSwitchingProfile: widget.isSwitchingProfile,
+                    businessName:
+                        widget.financialProfile?.kind ==
+                            FinancialProfileKind.business
+                        ? widget.financialProfile!.name
+                        : null,
+                  ),
+                ),
+              ),
             ),
-            _buildTransactions(),
-            _buildProfile(),
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ExcludeSemantics(
+                    excluding: widget.isSwitchingProfile,
+                    child: IgnorePointer(
+                      ignoring: widget.isSwitchingProfile,
+                      child: IndexedStack(
+                        index: _selectedIndex,
+                        children: [
+                          _buildDashboard(summary),
+                          ReportsScreen(
+                            userId: widget.user.id,
+                            profileId: _profileId,
+                            showHeader: false,
+                            transactions: _transactions,
+                            limitRepository: widget.monthlyLimitRepository,
+                            isLoading: _isLoading,
+                            loadError: _loadError,
+                            onRefresh: _loadTransactions,
+                            isActive:
+                                _selectedIndex == 1 &&
+                                !widget.isSwitchingProfile,
+                          ),
+                          _buildTransactions(),
+                          _buildProfile(),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (widget.isSwitchingProfile)
+                    ColoredBox(
+                      key: const ValueKey('switching-financial-profile'),
+                      color: AppColors.of(context).background,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: AppColors.of(context).neon,
+                            ),
+                            const SizedBox(height: 16),
+                            _text('Trocando perfil...'),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -408,8 +524,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         constraints: const BoxConstraints(maxWidth: 520),
         child: RefreshIndicator(
           onRefresh: _loadTransactions,
-          color: AppColors.neon,
-          backgroundColor: AppColors.dashboardSurface,
+          color: AppColors.of(context).neon,
+          backgroundColor: AppColors.of(context).dashboardSurface,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
@@ -424,20 +540,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildDashboard(FinanceSummary summary) {
+    final isBusiness = _profileId != FinancialProfile.personalId;
+    final monthSummary = FinanceSummary.forMonth(
+      _transactions,
+      userId: widget.user.id,
+      profileId: _profileId,
+      month: DateTime.now(),
+    );
     return _scrollable([
-      const AppHeader(),
-      const SizedBox(height: 24),
-      _text('Olá, ${widget.user.firstName}', size: 25, bold: true),
+      _text(
+        isBusiness ? 'Caixa da empresa' : 'Olá, ${widget.user.firstName}',
+        size: 25,
+        bold: true,
+      ),
       const SizedBox(height: 4),
-      _text('Aqui está o resumo das suas finanças.', secondary: true),
+      _text(
+        isBusiness
+            ? 'Acompanhe as entradas e saídas do seu negócio.'
+            : 'Aqui está o resumo das suas finanças.',
+        secondary: true,
+      ),
       const SizedBox(height: 22),
       if (_loadError != null || (_isLoading && _transactions.isEmpty))
         _buildLoadStatus()
       else ...[
         if (_isLoading) ...[_progress(), const SizedBox(height: 12)],
         BalanceCard(
-          key: ValueKey(widget.user.id),
+          key: ValueKey('${widget.user.id}-$_profileId'),
           balanceCents: summary.balanceCents,
+          title: isBusiness ? 'Saldo em caixa' : 'Saldo atual',
         ),
         const SizedBox(height: 14),
         Row(
@@ -445,23 +576,61 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           children: [
             Expanded(
               child: SummaryCard(
-                title: 'Receitas',
+                title: isBusiness ? 'Entradas' : 'Receitas',
                 amountCents: summary.incomeCents,
                 icon: Icons.arrow_upward,
-                accentColor: AppColors.neon,
+                accentColor: AppColors.of(context).neon,
               ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: SummaryCard(
-                title: 'Despesas',
+                title: isBusiness ? 'Saídas' : 'Despesas',
                 amountCents: summary.expenseCents,
                 icon: Icons.arrow_downward,
-                accentColor: AppColors.dashboardExpense,
+                accentColor: AppColors.of(context).dashboardExpense,
               ),
             ),
           ],
         ),
+        if (isBusiness) ...[
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.of(context).dashboardSurface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.of(context).outline),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _text('Faturamento no mês', secondary: true),
+                const SizedBox(height: 6),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    formatCentsBRL(monthSummary.revenueCents),
+                    key: const ValueKey('business-revenue-month'),
+                    style: GoogleFonts.poppins(
+                      color: AppColors.of(context).dashboardText,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _text(
+                  'Vendas e serviços registrados neste mês.',
+                  size: 11,
+                  secondary: true,
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         _text('Gastos por categoria', size: 16, bold: true),
         const SizedBox(height: 16),
@@ -484,13 +653,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: Column(
           children: [
             if (_loadError == null) ...[
-              CircularProgressIndicator(color: AppColors.neon),
+              CircularProgressIndicator(color: AppColors.of(context).neon),
               const SizedBox(height: 16),
               _text('Carregando seus lançamentos...', secondary: true),
             ] else ...[
               Icon(
                 Icons.cloud_off_outlined,
-                color: AppColors.textSecondary,
+                color: AppColors.of(context).textSecondary,
                 size: 36,
               ),
               const SizedBox(height: 12),
@@ -498,8 +667,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               const SizedBox(height: 12),
               TextButton.icon(
                 onPressed: _loadTransactions,
-                icon: Icon(Icons.refresh, color: AppColors.neon),
-                label: _text('Tentar novamente', color: AppColors.neon),
+                icon: Icon(Icons.refresh, color: AppColors.of(context).neon),
+                label: _text(
+                  'Tentar novamente',
+                  color: AppColors.of(context).neon,
+                ),
               ),
             ],
           ],
@@ -536,7 +708,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildTransactionItem(FinanceTransaction transaction) {
     final isIncome = transaction.type == TransactionType.income;
-    final color = isIncome ? AppColors.neon : AppColors.dashboardExpense;
+    final color = isIncome
+        ? AppColors.of(context).neon
+        : AppColors.of(context).dashboardExpense;
     final date = transaction.occurredOn;
     final formattedDate =
         '${date.day.toString().padLeft(2, '0')}/'
@@ -544,9 +718,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.of(context).fieldFill,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
       ),
       child: Row(
         children: [
@@ -590,7 +764,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             key: ValueKey('edit-transaction-${transaction.id}'),
             tooltip: 'Editar descrição',
             onPressed: () => _editTransactionDescription(transaction),
-            icon: Icon(Icons.edit_outlined, color: AppColors.neon, size: 20),
+            icon: Icon(
+              Icons.edit_outlined,
+              color: AppColors.of(context).neon,
+              size: 20,
+            ),
           ),
         ],
       ),
@@ -598,60 +776,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildProfile() {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _text('Perfil', size: 24, bold: true),
-              const SizedBox(height: 24),
-              Icon(Icons.person_outline, color: AppColors.neon, size: 56),
-              const SizedBox(height: 16),
-              _text(
-                widget.user.name,
-                size: 21,
-                bold: true,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              _text(
-                widget.user.email,
-                secondary: true,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                key: const ValueKey('sign-out'),
-                onPressed: _isSigningOut ? null : _signOut,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.button,
-                  foregroundColor: AppColors.background,
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                icon: const Icon(Icons.logout),
-                label: _text(
-                  'Sair da conta',
-                  bold: true,
-                  color: AppColors.background,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final rename = widget.onRenameBusiness;
+    final saveBusiness =
+        widget.onSaveBusinessDetails ??
+        (rename == null
+            ? null
+            : (BusinessProfileData data) async {
+                await rename(data.name);
+              });
+    return ProfileScreen(
+      user: widget.user,
+      financialProfile: widget.financialProfile,
+      isSigningOut: _isSigningOut,
+      onSignOut: _signOut,
+      onBack: () => setState(() => _selectedIndex = 0),
+      onSavePersonalName: widget.onSavePersonalName,
+      onSaveBusiness: saveBusiness,
+      onChoosePhoto: widget.onChooseProfilePhoto,
+      onRemovePhoto: widget.onRemoveProfilePhoto,
     );
   }
 
   Widget _progress() => LinearProgressIndicator(
-    color: AppColors.neon,
-    backgroundColor: AppColors.dashboardTrack,
+    color: AppColors.of(context).neon,
+    backgroundColor: AppColors.of(context).dashboardTrack,
   );
 
   Widget _text(
@@ -670,7 +818,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     style: GoogleFonts.poppins(
       color:
           color ??
-          (secondary ? AppColors.textSecondary : AppColors.dashboardText),
+          (secondary
+              ? AppColors.of(context).textSecondary
+              : AppColors.of(context).dashboardText),
       fontSize: size,
       fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
     ),

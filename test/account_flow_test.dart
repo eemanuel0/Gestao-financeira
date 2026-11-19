@@ -154,7 +154,7 @@ void main() {
     expect(find.text('Salário da Ana'), findsOneWidget);
     expect(find.text('Mercado da Ana'), findsOneWidget);
     await _tap(tester, find.text('Perfil').last);
-    await _tap(tester, find.byKey(const ValueKey('sign-out')));
+    await _logout(tester);
     expect(find.byType(WelcomeScreen), findsOneWidget);
     await _signIn(tester, _bia);
 
@@ -168,7 +168,7 @@ void main() {
 
     // Ao voltar à conta original, seus lançamentos continuam disponíveis.
     await _tap(tester, find.text('Perfil').last);
-    await _tap(tester, find.byKey(const ValueKey('sign-out')));
+    await _logout(tester);
     await _signIn(tester, _ana);
     expect(_balance(tester), 75000);
     expect(tester.takeException(), isNull);
@@ -457,4 +457,14 @@ class _FakeRepository implements FinanceRepository {
   }
 
   Future<void> close() => _controller.close();
+}
+
+// Aguarda avisos temporários que podem cobrir o botão após rolar o Perfil.
+Future<void> _logout(WidgetTester tester) async {
+  final notices = find.byType(SnackBar);
+  while (notices.evaluate().isNotEmpty) {
+    await tester.pump(tester.widget<SnackBar>(notices.first).duration);
+    await tester.pumpAndSettle();
+  }
+  await _tap(tester, find.byKey(const ValueKey('sign-out')));
 }

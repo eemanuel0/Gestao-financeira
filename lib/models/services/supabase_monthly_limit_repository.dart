@@ -1,13 +1,22 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../monthly_limit.dart';
+import '../financial_profile.dart';
 import 'finance_repository.dart';
 import 'monthly_limit_repository.dart';
 
 class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
   final SupabaseClient _client;
+  final String profileId;
 
-  SupabaseMonthlyLimitRepository(this._client);
+  SupabaseMonthlyLimitRepository(
+    this._client, {
+    this.profileId = FinancialProfile.personalId,
+  }) {
+    if (profileId.trim().isEmpty || profileId != profileId.trim()) {
+      throw ArgumentError('O repositório precisa de um perfil válido.');
+    }
+  }
 
   @override
   Future<MonthlyLimit?> loadForMonth(DateTime month) async {
@@ -17,8 +26,9 @@ class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
       _checkSession(userId);
       final row = await _client
           .from('monthly_limits')
-          .select('user_id,month,limit_cents')
+          .select('user_id,profile_id,month,limit_cents')
           .eq('user_id', userId)
+          .eq('profile_id', profileId)
           .eq('month', monthKey)
           .maybeSingle();
       _checkSession(userId);
@@ -44,6 +54,7 @@ class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
     try {
       final limit = MonthlyLimit(
         userId: userId,
+        profileId: profileId,
         month: month,
         limitCents: limitCents,
       );
@@ -51,8 +62,8 @@ class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
       // A chave composta mantém apenas um limite para cada usuário e mês.
       final row = await _client
           .from('monthly_limits')
-          .upsert(limit.toJson(), onConflict: 'user_id,month')
-          .select('user_id,month,limit_cents')
+          .upsert(limit.toJson(), onConflict: 'user_id,profile_id,month')
+          .select('user_id,profile_id,month,limit_cents')
           .single();
       _checkSession(userId);
       return _validateResponse(
@@ -82,6 +93,7 @@ class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
   }) {
     final limit = MonthlyLimit.fromJson(row);
     if (limit.userId != userId ||
+        limit.profileId != profileId ||
         limit.monthKey != monthKey ||
         (expectedCents != null && limit.limitCents != expectedCents)) {
       throw const FinanceException('Não foi possível confirmar seu limite.');

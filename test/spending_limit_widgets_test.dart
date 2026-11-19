@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:gestao_financeira/core/app_colors.dart';
+import 'package:gestao_financeira/core/app_theme.dart';
 import 'package:gestao_financeira/widgets/limit_alert_banner.dart';
 import 'package:gestao_financeira/widgets/spending_limit_card.dart';
 
@@ -19,7 +19,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData.dark(useMaterial3: true),
+        theme: createAppTheme(Brightness.dark),
         home: Scaffold(
           body: Padding(padding: const EdgeInsets.all(16), child: child),
         ),
@@ -44,7 +44,7 @@ void main() {
       find.byType(LinearProgressIndicator),
     );
     expect(progress.value, 1);
-    expect(progress.color, AppColors.dashboardExpense);
+    expect(progress.color, createAppTheme(Brightness.dark).colorScheme.error);
     expect(find.text('112%'), findsOneWidget);
     expect(find.text('R\$ 1.680,00 gastos'), findsOneWidget);
     await tester.tap(find.text('Editar limite'));
@@ -63,7 +63,10 @@ void main() {
         find.byType(LinearProgressIndicator),
       );
       expect(progress.value, 1);
-      expect(progress.color, AppColors.neon);
+      expect(
+        progress.color,
+        createAppTheme(Brightness.dark).colorScheme.primary,
+      );
       await mount(
         tester,
         SpendingLimitCard(limit: 0, spent: 100, onEdit: () {}),

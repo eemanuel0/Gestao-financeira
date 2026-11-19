@@ -1,17 +1,23 @@
 import '../utils/formatters.dart';
+import 'financial_profile.dart';
 
 class MonthlyLimit {
   final String userId;
+  final String profileId;
   final DateTime month;
   final int limitCents;
 
   MonthlyLimit({
     required this.userId,
+    this.profileId = FinancialProfile.personalId,
     required DateTime month,
     required this.limitCents,
   }) : month = normalizeMonth(month) {
     if (userId.trim().isEmpty) {
       throw ArgumentError('O limite precisa de um usuário.');
+    }
+    if (profileId.trim().isEmpty || profileId != profileId.trim()) {
+      throw ArgumentError('O limite precisa de um perfil válido.');
     }
     if (limitCents <= 0 || limitCents > maxMoneyCents) {
       throw ArgumentError.value(limitCents, 'limitCents', 'Limite inválido.');
@@ -38,8 +44,18 @@ class MonthlyLimit {
     final userId = json['user_id'];
     final month = json['month'];
     final limit = json['limit_cents'];
+    final profileId = json.containsKey('profile_id')
+        ? json['profile_id']
+        : FinancialProfile.personalId;
     if (userId is! String || month is! String || limit is! int) {
       throw const FormatException('Dados do limite mensal inválidos.');
+    }
+    if (profileId is! String ||
+        profileId.trim().isEmpty ||
+        profileId != profileId.trim()) {
+      throw const FormatException(
+        'O campo profile_id precisa ser um ID válido.',
+      );
     }
     final match = RegExp(r'^([0-9]{4})-(0[1-9]|1[0-2])-01$').firstMatch(month);
     if (match == null || int.parse(match[1]!) == 0) {
@@ -48,6 +64,7 @@ class MonthlyLimit {
     try {
       return MonthlyLimit(
         userId: userId,
+        profileId: profileId,
         month: DateTime(int.parse(match[1]!), int.parse(match[2]!)),
         limitCents: limit,
       );
@@ -58,6 +75,7 @@ class MonthlyLimit {
 
   Map<String, dynamic> toJson() => {
     'user_id': userId,
+    'profile_id': profileId,
     'month': monthKey,
     'limit_cents': limitCents,
   };

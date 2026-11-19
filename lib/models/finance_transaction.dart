@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/formatters.dart';
+import 'financial_profile.dart';
 
 enum TransactionType {
   income,
@@ -10,6 +11,11 @@ enum TransactionType {
     income => 'Receita',
     expense => 'Despesa',
   };
+
+  String labelForProfile(String profileId) {
+    if (profileId == FinancialProfile.personalId) return label;
+    return this == income ? 'Entrada' : 'Saída';
+  }
 
   IconData get icon => switch (this) {
     income => Icons.arrow_upward,
@@ -25,7 +31,13 @@ enum TransactionCategory {
   transport,
   health,
   leisure,
-  other;
+  other,
+  sales,
+  suppliers,
+  payroll,
+  businessRent,
+  utilities,
+  taxes;
 
   String get label => switch (this) {
     salary => 'Salário',
@@ -36,6 +48,12 @@ enum TransactionCategory {
     health => 'Saúde',
     leisure => 'Lazer',
     other => 'Outros',
+    sales => 'Vendas',
+    suppliers => 'Fornecedores',
+    payroll => 'Salários da equipe',
+    businessRent => 'Aluguel',
+    utilities => 'Contas da empresa',
+    taxes => 'Impostos',
   };
 
   IconData get icon => switch (this) {
@@ -47,10 +65,48 @@ enum TransactionCategory {
     health => Icons.health_and_safety_outlined,
     leisure => Icons.sports_esports_outlined,
     other => Icons.category_outlined,
+    sales => Icons.point_of_sale_outlined,
+    suppliers => Icons.inventory_2_outlined,
+    payroll => Icons.groups_outlined,
+    businessRent => Icons.storefront_outlined,
+    utilities => Icons.receipt_long_outlined,
+    taxes => Icons.account_balance_outlined,
   };
 
-  // Impede usar categorias de receita em despesas e vice-versa.
-  static List<TransactionCategory> allowedFor(TransactionType type) {
+  // Oferece as categorias adequadas ao espaço financeiro do formulário.
+  static List<TransactionCategory> allowedFor(
+    TransactionType type, {
+    String profileId = FinancialProfile.personalId,
+  }) {
+    if (profileId != FinancialProfile.personalId) {
+      return switch (type) {
+        TransactionType.income => const [sales, services, other],
+        TransactionType.expense => const [
+          suppliers,
+          payroll,
+          businessRent,
+          utilities,
+          taxes,
+          transport,
+          other,
+        ],
+      };
+    }
+    return _personalCategories(type);
+  }
+
+  // Mantém legíveis os lançamentos empresariais criados antes da separação
+  // de categorias, sem mudar a classificação ou qualquer valor já salvo.
+  bool isValidFor(
+    TransactionType type, {
+    String profileId = FinancialProfile.personalId,
+  }) {
+    return allowedFor(type, profileId: profileId).contains(this) ||
+        (profileId != FinancialProfile.personalId &&
+            _personalCategories(type).contains(this));
+  }
+
+  static List<TransactionCategory> _personalCategories(TransactionType type) {
     return switch (type) {
       TransactionType.income => const [salary, services, other],
       TransactionType.expense => const [
@@ -70,6 +126,7 @@ class FinanceTransaction {
 
   final String id;
   final String userId;
+  final String profileId;
   final TransactionType type;
   final int amountCents;
   final TransactionCategory category;
@@ -80,6 +137,7 @@ class FinanceTransaction {
   FinanceTransaction({
     required this.id,
     required this.userId,
+    this.profileId = FinancialProfile.personalId,
     required this.type,
     required this.amountCents,
     required this.category,
@@ -89,6 +147,9 @@ class FinanceTransaction {
   }) {
     if (id.trim().isEmpty || userId.trim().isEmpty) {
       throw ArgumentError('O lançamento precisa de um ID e de um usuário.');
+    }
+    if (profileId.trim().isEmpty || profileId != profileId.trim()) {
+      throw ArgumentError('O lançamento precisa de um perfil válido.');
     }
     if (amountCents <= 0 || amountCents > maxAmountCents) {
       throw ArgumentError.value(amountCents, 'amountCents', 'Valor inválido.');
@@ -100,7 +161,7 @@ class FinanceTransaction {
         'A descrição deve ter entre 1 e 120 caracteres.',
       );
     }
-    if (!TransactionCategory.allowedFor(type).contains(category)) {
+    if (!category.isValidFor(type, profileId: profileId)) {
       throw ArgumentError('A categoria não é permitida para esse tipo.');
     }
   }
@@ -115,6 +176,7 @@ class FinanceTransaction {
     return FinanceTransaction(
       id: _readString(json, 'id'),
       userId: _readString(json, 'user_id'),
+      profileId: _readProfileId(json),
       type: TransactionType.values.firstWhere(
         (value) => value.name == json['type'],
         orElse: () =>
@@ -135,6 +197,7 @@ class FinanceTransaction {
     return {
       'id': id,
       'user_id': userId,
+      'profile_id': profileId,
       'type': type.name,
       'amount_cents': amountCents,
       'category': category.name,
@@ -152,6 +215,19 @@ class FinanceTransaction {
     final value = json[key];
     if (value is! String) {
       throw FormatException('O campo $key precisa ser um texto.');
+    }
+    return value;
+  }
+
+  static String _readProfileId(Map<String, dynamic> json) {
+    if (!json.containsKey('profile_id')) {
+      return FinancialProfile.personalId;
+    }
+    final value = json['profile_id'];
+    if (value is! String || value.trim().isEmpty || value != value.trim()) {
+      throw const FormatException(
+        'O campo profile_id precisa ser um ID válido.',
+      );
     }
     return value;
   }

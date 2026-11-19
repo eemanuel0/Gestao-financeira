@@ -259,6 +259,12 @@ Future<void> _tab(WidgetTester tester, String label) =>
 
 Future<void> _logout(WidgetTester tester) async {
   await _tab(tester, 'Perfil');
+  // O usuário aguarda os avisos transitórios antes de tocar a ação abaixo deles.
+  final notice = find.byType(SnackBar);
+  while (notice.evaluate().isNotEmpty) {
+    await tester.pump(tester.widget<SnackBar>(notice.first).duration);
+    await tester.pumpAndSettle();
+  }
   await _tap(tester, find.byKey(const ValueKey('sign-out')));
 }
 

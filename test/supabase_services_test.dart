@@ -140,6 +140,7 @@ void main() {
     ]);
     for (final query in queries) {
       expect(query.query['user_id'], 'eq.$_userA');
+      expect(query.query['profile_id'], 'eq.personal');
       expect(query.query['limit'], '500');
       final order = query.query['order']!.split(',');
       expect(order, hasLength(3));
@@ -177,6 +178,7 @@ void main() {
 
     expect(request.body, {
       'user_id': _userA,
+      'profile_id': 'personal',
       'type': 'expense',
       'amount_cents': 123456,
       'category': 'food',
@@ -254,6 +256,7 @@ void main() {
       expect(request.body, {'description': 'Mercado da semana'});
       expect(request.query['id'], 'eq.row-1');
       expect(request.query['user_id'], 'eq.$_userA');
+      expect(request.query['profile_id'], 'eq.personal');
       expect(updated.id, original.id);
       expect(updated.userId, original.userId);
       expect(updated.description, 'Mercado da semana');
@@ -344,11 +347,86 @@ void main() {
     release.complete();
     await expectation;
   });
+  test('consulta empresa isolada e rejeita resposta de outro perfil', () async {
+    await signIn();
+    final business = SupabaseFinanceRepository(client, profileId: 'business');
+    server.rows = [_transaction('business-row', profileId: 'business')];
+    await expectLater(
+      finances.loadTransactions(),
+      throwsA(isA<FinanceException>()),
+    );
+    final loaded = await business.loadTransactions();
+    expect(loaded.single.profileId, 'business');
+    expect(server.requests.last.query['profile_id'], 'eq.business');
+    server.rows = [_transaction('personal-row')];
+    await expectLater(
+      business.loadTransactions(),
+      throwsA(isA<FinanceException>()),
+    );
+    server.rows = [_transaction('legacy-row')..remove('profile_id')];
+    await expectLater(
+      business.loadTransactions(),
+      throwsA(isA<FinanceException>()),
+    );
+  });
+
+  test('receita empresarial envia perfil fixo no payload', () async {
+    await signIn();
+    final business = SupabaseFinanceRepository(client, profileId: 'business');
+    await business.addTransaction(
+      type: TransactionType.income,
+      amountCents: 12500,
+      category: TransactionCategory.services,
+      description: 'Serviço prestado',
+      occurredOn: DateTime(2026, 11, 18),
+    );
+    final request = server.requests.singleWhere(
+      (request) => request.isTransactionInsert,
+    );
+    expect(request.body!['profile_id'], 'business');
+    expect(request.body!['user_id'], _userA);
+    expect(request.body!['amount_cents'], 12500);
+  });
+
+  test('editar nome também fica restrito ao perfil do repositório', () async {
+    await signIn();
+    final business = SupabaseFinanceRepository(client, profileId: 'business');
+    server.rows = [_transaction('business-row', profileId: 'business')];
+    await expectLater(
+      finances.updateTransactionDescription(
+        transactionId: 'business-row',
+        description: 'Novo nome',
+      ),
+      throwsA(isA<FinanceException>()),
+    );
+    final updated = await business.updateTransactionDescription(
+      transactionId: 'business-row',
+      description: 'Novo nome',
+    );
+    expect(updated.profileId, 'business');
+    expect(server.requests.last.query['profile_id'], 'eq.business');
+    server.updateResponse = {
+      ..._transaction('business-row'),
+      'description': 'Outro nome',
+    };
+    await expectLater(
+      business.updateTransactionDescription(
+        transactionId: 'business-row',
+        description: 'Outro nome',
+      ),
+      throwsA(isA<FinanceException>()),
+    );
+  });
 }
 
-Map<String, dynamic> _transaction(String id, {String userId = _userA}) => {
+Map<String, dynamic> _transaction(
+  String id, {
+  String userId = _userA,
+  String profileId = 'personal',
+}) => {
   'id': id,
   'user_id': userId,
+  'profile_id': profileId,
   'type': 'expense',
   'amount_cents': 100,
   'category': 'food',
@@ -441,7 +519,8 @@ class _LocalSupabase {
       final matches = rows.where(
         (row) =>
             recorded.query['id'] == 'eq.${row['id']}' &&
-            recorded.query['user_id'] == 'eq.${row['user_id']}',
+            recorded.query['user_id'] == 'eq.${row['user_id']}' &&
+            recorded.query['profile_id'] == 'eq.${row['profile_id']}',
       );
       if (updateErrorStatus != null ||
           (updateResponse == null && matches.isEmpty)) {

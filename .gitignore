@@ -60,3 +60,15 @@ app.*.map.json
 
 # Configuração e atualização Finanças
 /financas_editar_lancamentos.zip
+
+# Configuração e atualização Finanças
+/financas_perfis.zip
+
+# Configuração e atualização Finanças
+/financas_perfil_foto.zip
+
+# Configuração e atualização Finanças
+/financas_perfil_minimalista.zip
+
+# Configuração e atualização Finanças
+/financas_perfil_seguranca_temas.zip

@@ -37,7 +37,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: GlowBackground(
         child: SafeArea(
           child: Align(
@@ -60,9 +60,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onPressed: _isSubmitting
                               ? null
                               : () => Navigator.maybePop(context),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.arrow_back,
-                            color: AppColors.dashboardText,
+                            color: AppColors.of(context).dashboardText,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -70,10 +70,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.savings_outlined,
                                 size: 40,
-                                color: AppColors.neon,
+                                color: AppColors.of(context).neon,
                               ),
                               const SizedBox(width: 12),
                               Text(
@@ -81,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: GoogleFonts.poppins(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.dashboardText,
+                                  color: AppColors.of(context).dashboardText,
                                 ),
                               ),
                             ],
@@ -93,7 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.dashboardText,
+                            color: AppColors.of(context).dashboardText,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -101,7 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           'É rápido e gratuito.',
                           style: GoogleFonts.poppins(
                             fontSize: 15,
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                           ),
                         ),
                         const SizedBox(height: 28),
@@ -158,7 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _obscurePassword
                                   ? Icons.visibility_outlined
                                   : Icons.visibility_off_outlined,
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                             ),
                           ),
                         ),
@@ -193,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _obscureConfirm
                                   ? Icons.visibility_outlined
                                   : Icons.visibility_off_outlined,
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                             ),
                           ),
                         ),
@@ -204,8 +204,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             key: const ValueKey('register-submit'),
                             onPressed: _isSubmitting ? null : _submit,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.button,
-                              foregroundColor: AppColors.background,
+                              backgroundColor: AppColors.of(context).button,
+                              foregroundColor: AppColors.of(context).background,
                               minimumSize: const Size.fromHeight(56),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
@@ -217,12 +217,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             child: _isSubmitting
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 22,
                                     height: 22,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppColors.background,
+                                      color: AppColors.of(context).background,
                                     ),
                                   )
                                 : Text(
@@ -244,7 +244,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 'Já tem uma conta?',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
-                                  color: AppColors.textSecondary,
+                                  color: AppColors.of(context).textSecondary,
                                 ),
                               ),
                               TextButton(
@@ -254,7 +254,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.button,
+                                    color: AppColors.of(context).button,
                                   ),
                                 ),
                               ),
@@ -348,29 +348,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
       textInputAction: textInputAction,
       onFieldSubmitted: onFieldSubmitted,
       validator: validator,
-      style: GoogleFonts.poppins(fontSize: 15, color: AppColors.dashboardText),
-      cursorColor: AppColors.neon,
+      style: GoogleFonts.poppins(
+        fontSize: 15,
+        color: AppColors.of(context).dashboardText,
+      ),
+      cursorColor: AppColors.of(context).neon,
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.04),
+        fillColor: AppColors.of(context).fieldFill,
         labelText: label,
         labelStyle: GoogleFonts.poppins(
           fontSize: 15,
-          color: AppColors.textSecondary,
+          color: AppColors.of(context).textSecondary,
         ),
-        errorStyle: GoogleFonts.poppins(color: AppColors.dashboardExpense),
+        errorStyle: GoogleFonts.poppins(
+          color: AppColors.of(context).dashboardExpense,
+        ),
         errorMaxLines: 2,
-        prefixIcon: Icon(icon, color: AppColors.textSecondary),
+        prefixIcon: Icon(icon, color: AppColors.of(context).textSecondary),
         suffixIcon: suffix,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 20,
         ),
-        enabledBorder: border(AppColors.outline),
-        disabledBorder: border(AppColors.outline),
-        focusedBorder: border(AppColors.neon),
-        errorBorder: border(AppColors.dashboardExpense),
-        focusedErrorBorder: border(AppColors.dashboardExpense),
+        enabledBorder: border(AppColors.of(context).outline),
+        disabledBorder: border(AppColors.of(context).outline),
+        focusedBorder: border(AppColors.of(context).neon),
+        errorBorder: border(AppColors.of(context).dashboardExpense),
+        focusedErrorBorder: border(AppColors.of(context).dashboardExpense),
       ),
     );
   }
