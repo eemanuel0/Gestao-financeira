@@ -1,0 +1,116 @@
+name: Gerar APK Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      supabase_url:
+        description: 'SUPABASE_URL do seu config/supabase.json'
+        required: true
+        type: string
+      supabase_publishable_key:
+        description: 'SUPABASE_PUBLISHABLE_KEY do seu config/supabase.json'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Preparar a plataforma Android
+        shell: bash
+        run: |
+          if [ ! -f android/app/src/main/AndroidManifest.xml ]; then
+            flutter create --platforms=android --project-name=gestao_financeira --org=com.financas --no-pub --empty .
+            # Preserva as versões das dependências já testadas.
+            git restore -- pubspec.lock
+          fi
+
+      - name: Configurar internet, nome e Supabase
+        env:
+          SUPABASE_URL: ${{ inputs.supabase_url }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ inputs.supabase_publishable_key }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          url = os.environ['SUPABASE_URL'].strip().rstrip('/')
+          key = os.environ['SUPABASE_PUBLISHABLE_KEY'].strip()
+          parsed = urlparse(url)
+
+          if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.query or parsed.fragment or parsed.path:
+              raise SystemExit('Informe a URL HTTPS raiz do projeto Supabase.')
+
+          # Aceita somente as chaves públicas usadas pelo aplicativo.
+          public_key = key.startswith('sb_publishable_')
+          if not public_key:
+              try:
+                  part = key.split('.')[1]
+                  payload = json.loads(base64.urlsafe_b64decode(part + '=' * (-len(part) % 4)))
+                  public_key = payload.get('role') == 'anon'
+              except Exception:
+                  public_key = False
+
+          if not public_key:
+              raise SystemExit('Use a chave pública publishable ou anon do projeto.')
+
+          config = Path('config/supabase.json')
+          config.parent.mkdir(exist_ok=True)
+          config.write_text(json.dumps({
+              'SUPABASE_URL': url,
+              'SUPABASE_PUBLISHABLE_KEY': key
+          }))
+
+          # A permissão precisa estar no manifest principal para funcionar no APK.
+          android = 'http://schemas.android.com/apk/res/android'
+          ET.register_namespace('android', android)
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          tree = ET.parse(manifest)
+          root = tree.getroot()
+
+          if not any(p.get(f'{{{android}}}name') == 'android.permission.INTERNET'
+                     for p in root.findall('uses-permission')):
+              root.insert(0, ET.Element('uses-permission', {
+                  f'{{{android}}}name': 'android.permission.INTERNET'
+              }))
+
+          root.find('application').set(f'{{{android}}}label', 'Finanças')
+          tree.write(manifest, encoding='utf-8', xml_declaration=True)
+          PY
+
+      - name: Baixar dependências
+        run: flutter pub get
+
+      - name: Compilar APK
+        run: flutter build apk --release --dart-define-from-file=config/supabase.json
+
+      - name: Disponibilizar APK para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: financas-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
