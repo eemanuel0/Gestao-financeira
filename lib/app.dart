@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'core/app_theme.dart';
 import 'core/app_settings.dart';
+import 'core/email_confirmation.dart';
 import 'models/services/password_service.dart';
 import 'models/app_user.dart';
 import 'models/picked_profile_image.dart';
@@ -16,6 +17,7 @@ import 'models/services/monthly_limit_repository.dart';
 import 'models/services/profile_details_repository.dart';
 import 'screens/home_screen.dart';
 import 'screens/financial_workspace.dart';
+import 'screens/email_confirmed_screen.dart';
 import 'screens/welcome_screen.dart';
 
 // Mantém a chamada antiga buildAppTheme() compatível com as telas e testes.
@@ -35,6 +37,7 @@ class MyApp extends StatefulWidget {
   monthlyLimitRepositoryForProfile;
   final ProfileDetailsRepository? profileDetailsRepository;
   final Future<PickedProfileImage?> Function()? imagePicker;
+  final EmailConfirmationStatus emailConfirmationStatus;
 
   const MyApp({
     super.key,
@@ -48,6 +51,7 @@ class MyApp extends StatefulWidget {
     this.monthlyLimitRepositoryForProfile,
     this.profileDetailsRepository,
     this.imagePicker,
+    this.emailConfirmationStatus = EmailConfirmationStatus.none,
   }) : assert(
          (profileRepository == null &&
                  financeRepositoryForProfile == null &&
@@ -125,7 +129,14 @@ class _MyAppState extends State<MyApp> {
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: user == null
+      home: widget.emailConfirmationStatus != EmailConfirmationStatus.none
+          ? EmailConfirmedScreen(
+              accountService: widget.accountService,
+              isError:
+                  widget.emailConfirmationStatus ==
+                  EmailConfirmationStatus.invalid,
+            )
+          : user == null
           ? WelcomeScreen(accountService: widget.accountService)
           : widget.profileRepository != null
           ? FinancialWorkspace(

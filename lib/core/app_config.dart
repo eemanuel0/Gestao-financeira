@@ -2,6 +2,9 @@ import 'dart:convert';
 
 // Recebe apenas a URL e a chave pública do projeto Supabase.
 class AppConfig {
+  // Usa a origem atual do app como destino do link de confirmação.
+  static String get emailRedirectTo => Uri.base.origin;
+
   final String supabaseUrl;
   final String supabasePublishableKey;
 
