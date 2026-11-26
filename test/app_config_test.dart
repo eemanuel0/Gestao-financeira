@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gestao_financeira/core/app_config.dart';
 
 void main() {
-  AppConfig config(String key, {String url = 'https://example.supabase.co'}) {
+  AppConfig config(String key, {String url = 'https://projeto-teste.supabase.co'}) {
     return AppConfig(supabaseUrl: url, supabasePublishableKey: key);
   }
 
