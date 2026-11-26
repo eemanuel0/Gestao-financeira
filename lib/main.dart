@@ -23,7 +23,10 @@ Future<void> main() async {
 
   try {
     // Abre o serviço antes de montar as telas, conforme o padrão do projeto.
-    final database = await AppDatabase.instance.database;
+    final database = await AppDatabase.instance.open(
+      detectSessionInUri:
+          emailConfirmationStatus == EmailConfirmationStatus.none,
+    );
 
     // O link confirma o e-mail, mas não deve manter o usuário conectado.
     if (emailConfirmationStatus != EmailConfirmationStatus.none) {
