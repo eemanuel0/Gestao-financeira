@@ -1,9 +1,14 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 // Recebe apenas a URL e a chave pública do projeto Supabase.
 class AppConfig {
   final String supabaseUrl;
   final String supabasePublishableKey;
+
+  static String? get emailConfirmationRedirect =>
+      kIsWeb ? Uri.base.origin : null;
 
   const AppConfig({
     required this.supabaseUrl,

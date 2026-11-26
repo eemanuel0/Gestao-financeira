@@ -14,8 +14,10 @@ import 'models/services/finance_repository.dart';
 import 'models/services/financial_profile_repository.dart';
 import 'models/services/monthly_limit_repository.dart';
 import 'models/services/profile_details_repository.dart';
+import 'screens/email_confirmed_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/financial_workspace.dart';
+import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
 
 // Mantém a chamada antiga buildAppTheme() compatível com as telas e testes.
@@ -26,6 +28,7 @@ class MyApp extends StatefulWidget {
   final AccountService accountService;
   final PasswordService? passwordService;
   final AppSettingsController? settings;
+  final EmailConfirmationResult? emailConfirmation;
   final FinanceRepository repository;
   final MonthlyLimitRepository? monthlyLimitRepository;
   final FinancialProfileRepository? profileRepository;
@@ -41,6 +44,7 @@ class MyApp extends StatefulWidget {
     required this.accountService,
     this.passwordService,
     this.settings,
+    this.emailConfirmation,
     required this.repository,
     this.monthlyLimitRepository,
     this.profileRepository,
@@ -66,6 +70,7 @@ class _MyAppState extends State<MyApp> {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<AppUser?>? _subscription;
   AppUser? _user;
+  EmailConfirmationResult? _emailConfirmation;
   late final AppSettingsController _settings;
 
   @override
@@ -73,6 +78,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _settings = widget.settings ?? AppSettingsController();
     _settings.addListener(_appearanceChanged);
+    _emailConfirmation = widget.emailConfirmation;
     _user = widget.accountService.currentUser;
     _subscription = widget.accountService.userChanges.listen(
       (user) {
@@ -97,6 +103,15 @@ class _MyAppState extends State<MyApp> {
     if (mounted) setState(() {});
   }
 
+  void _openLoginAfterConfirmation() {
+    setState(() => _emailConfirmation = null);
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => LoginScreen(accountService: widget.accountService),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _settings.removeListener(_appearanceChanged);
@@ -108,6 +123,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     final user = _user;
+    final emailConfirmation = _emailConfirmation;
     return MaterialApp(
       title: 'Finanças',
       navigatorKey: _navigatorKey,
@@ -125,7 +141,12 @@ class _MyAppState extends State<MyApp> {
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: user == null
+      home: emailConfirmation != null
+          ? EmailConfirmedScreen(
+              result: emailConfirmation,
+              onLogin: _openLoginAfterConfirmation,
+            )
+          : user == null
           ? WelcomeScreen(accountService: widget.accountService)
           : widget.profileRepository != null
           ? FinancialWorkspace(
