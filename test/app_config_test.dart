@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gestao_financeira/core/app_config.dart';
 
 void main() {
-  AppConfig config(String key, {String url = 'https://example.supabase.co'}) {
+  AppConfig config(String key, {String url = 'https://projeto-teste.supabase.co'}) {
     return AppConfig(supabaseUrl: url, supabasePublishableKey: key);
   }
 
@@ -19,6 +19,22 @@ void main() {
       () => config('key', url: 'http://example.supabase.co').validate(),
       throwsFormatException,
     );
+  });
+
+  test('rejeita os valores de exemplo do arquivo de configuração', () {
+    expect(
+      () => config(
+        'sb_publishable_test',
+        url: 'https://seu-projeto.supabase.co',
+      ).validate(),
+      throwsFormatException,
+    );
+    expect(
+      () => config('sb_publishable_substitua_pela_chave_publica').validate(),
+      throwsFormatException,
+    );
+    expect(() => config('sua-chave-publica').validate(), throwsFormatException);
+    expect(() => config('chave-qualquer').validate(), throwsFormatException);
   });
 
   test('rejeita chaves administrativas novas e JWT service_role', () {

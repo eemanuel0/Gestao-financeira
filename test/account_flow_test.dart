@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gestao_financeira/app.dart';
+import 'package:gestao_financeira/core/email_confirmation.dart';
 import 'package:gestao_financeira/models/app_user.dart';
 import 'package:gestao_financeira/models/finance_transaction.dart';
 import 'package:gestao_financeira/models/services/account_service.dart';
 import 'package:gestao_financeira/models/services/finance_repository.dart';
 import 'package:gestao_financeira/screens/add_transaction_screen.dart';
 import 'package:gestao_financeira/screens/home_screen.dart';
+import 'package:gestao_financeira/screens/email_confirmed_screen.dart';
 import 'package:gestao_financeira/screens/login_screen.dart';
 import 'package:gestao_financeira/screens/register_screen.dart';
 import 'package:gestao_financeira/screens/welcome_screen.dart';
@@ -23,6 +25,47 @@ const _password = 'senha1234';
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  testWidgets('confirmação de e-mail mostra sucesso e abre o login', (
+    tester,
+  ) async {
+    final accounts = _FakeAccounts();
+    final repository = _FakeRepository(accounts);
+    await _mount(
+      tester,
+      accounts,
+      repository,
+      emailConfirmationStatus: EmailConfirmationStatus.confirmed,
+    );
+
+    expect(find.byType(EmailConfirmedScreen), findsOneWidget);
+    expect(find.text('E-mail confirmado!'), findsOneWidget);
+    expect(find.text('Já pode fazer login.'), findsOneWidget);
+
+    await _tap(tester, find.byKey(const ValueKey('email-confirmed-login')));
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('link expirado mostra erro e permite ir ao login', (
+    tester,
+  ) async {
+    final accounts = _FakeAccounts();
+    final repository = _FakeRepository(accounts);
+    await _mount(
+      tester,
+      accounts,
+      repository,
+      emailConfirmationStatus: EmailConfirmationStatus.invalid,
+    );
+
+    expect(find.byType(EmailConfirmedScreen), findsOneWidget);
+    expect(find.text('Link inválido ou expirado.'), findsOneWidget);
+
+    await _tap(tester, find.byKey(const ValueKey('email-confirmed-login')));
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('login valida, trata erro e impede envios duplicados', (
@@ -254,6 +297,8 @@ Future<void> _mount(
   _FakeAccounts accounts,
   _FakeRepository repository, {
   Size size = const Size(360, 720),
+  EmailConfirmationStatus emailConfirmationStatus =
+      EmailConfirmationStatus.none,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -267,7 +312,11 @@ Future<void> _mount(
     tester.view.resetDevicePixelRatio();
   });
   await tester.pumpWidget(
-    MyApp(accountService: accounts, repository: repository),
+    MyApp(
+      accountService: accounts,
+      repository: repository,
+      emailConfirmationStatus: emailConfirmationStatus,
+    ),
   );
   await tester.pumpAndSettle();
 }

@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/app_config.dart';
 
 import '../app_user.dart';
 import 'account_service.dart';
@@ -42,6 +45,7 @@ class SupabaseAccountService implements AccountService {
       final result = await _client.auth.signUp(
         email: email.trim().toLowerCase(),
         password: password,
+        emailRedirectTo: kIsWeb ? AppConfig.emailRedirectTo : null,
         data: {'name': name.trim()},
       );
       return result.session == null;
