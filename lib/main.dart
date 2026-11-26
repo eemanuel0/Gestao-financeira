@@ -65,6 +65,10 @@ Future<void> main() async {
     );
   } catch (error, stackTrace) {
     debugPrint('Falha ao iniciar Finanças: $error\n$stackTrace');
-    runApp(const StartupFailureApp());
+    runApp(
+      StartupFailureApp(
+        message: error is FormatException ? error.message : null,
+      ),
+    );
   }
 }

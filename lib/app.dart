@@ -163,7 +163,9 @@ class _MyAppState extends State<MyApp> {
 
 // Evita uma tela branca se a configuração ou a inicialização falharem.
 class StartupFailureApp extends StatelessWidget {
-  const StartupFailureApp({super.key});
+  final String? message;
+
+  const StartupFailureApp({super.key, this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -176,8 +178,9 @@ class StartupFailureApp extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'Não foi possível iniciar o aplicativo.\n'
-                'Tente novamente em alguns instantes.',
+                message ??
+                    'Não foi possível iniciar o aplicativo.\n'
+                        'Tente novamente em alguns instantes.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(fontSize: 16),
               ),
