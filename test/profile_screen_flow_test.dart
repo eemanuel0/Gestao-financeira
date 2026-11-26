@@ -292,8 +292,8 @@ class _Harness {
     repository: finance('personal'),
     monthlyLimitRepository: budget('personal'),
     profileRepository: profiles,
-    financeRepositoryForProfile: finance,
-    monthlyLimitRepositoryForProfile: budget,
+    financeRepositoryForProfile: (profile) => finance(profile.id),
+    monthlyLimitRepositoryForProfile: (profile) => budget(profile.id),
     profileDetailsRepository: details,
     imagePicker: () async => picks.isEmpty ? null : picks.removeFirst(),
   );

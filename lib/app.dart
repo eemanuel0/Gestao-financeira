@@ -8,8 +8,10 @@ import 'core/app_theme.dart';
 import 'core/app_settings.dart';
 import 'models/services/password_service.dart';
 import 'models/app_user.dart';
+import 'models/financial_profile.dart';
 import 'models/picked_profile_image.dart';
 import 'models/services/account_service.dart';
+import 'models/services/family_group_repository.dart';
 import 'models/services/finance_repository.dart';
 import 'models/services/financial_profile_repository.dart';
 import 'models/services/monthly_limit_repository.dart';
@@ -29,11 +31,12 @@ class MyApp extends StatefulWidget {
   final FinanceRepository repository;
   final MonthlyLimitRepository? monthlyLimitRepository;
   final FinancialProfileRepository? profileRepository;
-  final FinanceRepository Function(String profileId)?
+  final FinanceRepository Function(FinancialProfile profile)?
   financeRepositoryForProfile;
-  final MonthlyLimitRepository Function(String profileId)?
+  final MonthlyLimitRepository Function(FinancialProfile profile)?
   monthlyLimitRepositoryForProfile;
   final ProfileDetailsRepository? profileDetailsRepository;
+  final FamilyGroupRepository? familyGroupRepository;
   final Future<PickedProfileImage?> Function()? imagePicker;
 
   const MyApp({
@@ -47,6 +50,7 @@ class MyApp extends StatefulWidget {
     this.financeRepositoryForProfile,
     this.monthlyLimitRepositoryForProfile,
     this.profileDetailsRepository,
+    this.familyGroupRepository,
     this.imagePicker,
   }) : assert(
          (profileRepository == null &&
@@ -137,6 +141,7 @@ class _MyAppState extends State<MyApp> {
               monthlyLimitRepositoryForProfile:
                   widget.monthlyLimitRepositoryForProfile!,
               profileDetailsRepository: widget.profileDetailsRepository,
+              familyGroupRepository: widget.familyGroupRepository,
               imagePicker: widget.imagePicker,
             )
           : HomeScreen(

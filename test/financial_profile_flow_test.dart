@@ -9,6 +9,7 @@ import 'package:gestao_financeira/models/financial_profile.dart';
 import 'package:gestao_financeira/models/finance_transaction.dart';
 import 'package:gestao_financeira/models/monthly_limit.dart';
 import 'package:gestao_financeira/models/services/account_service.dart';
+import 'package:gestao_financeira/models/services/family_group_repository.dart';
 import 'package:gestao_financeira/models/services/financial_profile_repository.dart';
 import 'package:gestao_financeira/models/services/finance_repository.dart';
 import 'package:gestao_financeira/models/services/monthly_limit_repository.dart';
@@ -24,6 +25,50 @@ const _bia = AppUser(id: 'user-b', email: 'bia@teste.com', name: 'Bia Souza');
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  testWidgets(
+    'convite abre o orçamento compartilhado e sair volta à configuração',
+    (tester) async {
+      final harness = _Harness(familyEnabled: true);
+      await _mount(tester, harness);
+      await _profile(tester, FinancialProfile.familyId);
+      await _tap(tester, find.text('Criar grupo familiar'));
+      expect(find.text('Orçamento familiar'), findsOneWidget);
+      await _addExpense(tester, 3500, 'Conta de luz da casa');
+      await _tap(tester, find.text('Grupo familiar'));
+      await _tap(tester, find.text('Gerar convite'));
+      expect(find.text(_Profiles.inviteCode), findsOneWidget);
+
+      harness.accounts.switchTo(_bia);
+      await tester.pumpAndSettle();
+      _expectHome(tester, income: 0, expenses: 0, balance: 0);
+      await _profile(tester, FinancialProfile.familyId);
+      await _tap(tester, find.text('Entrar com convite'));
+      expect(
+        find.text('Cole o código de 32 caracteres do convite.'),
+        findsOneWidget,
+      );
+      await tester.enterText(find.byType(TextFormField), _Profiles.inviteCode);
+      await _tap(tester, find.text('Entrar com convite'));
+      _expectHome(tester, income: 0, expenses: 3500, balance: -3500);
+      await _tab(tester, 'Relatórios');
+      expect(_spending(tester).spent, 35);
+      await _setLimit(tester, 10500);
+      await _tab(tester, 'Início');
+      await _tap(tester, find.text('Grupo familiar'));
+      expect(find.text('Gerar convite'), findsNothing);
+      await _tap(tester, find.text('Sair do grupo'));
+      await _tap(tester, find.text('Sair do grupo').last);
+      expect(find.text('Entrar com convite'), findsOneWidget);
+      expect(find.byType(BalanceCard), findsNothing);
+
+      harness.accounts.switchTo(_ana);
+      await tester.pumpAndSettle();
+      _expectHome(tester, income: 0, expenses: 3500, balance: -3500);
+      await _tab(tester, 'Relatórios');
+      expect(_spending(tester).limit, 105);
+    },
+  );
 
   testWidgets(
     'legado, despesas, limites e nome permanecem no perfil escolhido',
@@ -368,7 +413,9 @@ void _expectHome(
     balance,
   );
   final cards = tester.widgetList<SummaryCard>(find.byType(SummaryCard));
-  final business = _header(tester).selectedProfileId != 'personal';
+  final business = FinancialProfile.isBusinessId(
+    _header(tester).selectedProfileId,
+  );
   expect(
     cards
         .singleWhere(
@@ -390,7 +437,9 @@ Future<void> _addExpense(
   int cents,
   String description,
 ) async {
-  final business = _header(tester).selectedProfileId != 'personal';
+  final business = FinancialProfile.isBusinessId(
+    _header(tester).selectedProfileId,
+  );
   await _tap(tester, find.byKey(const ValueKey('add-transaction')));
   await _tap(tester, find.byKey(const ValueKey('transaction-type')));
   await _tap(tester, find.text(business ? 'Saída' : 'Despesa').last);
@@ -423,17 +472,23 @@ Future<void> _selectMonth(WidgetTester tester, DateTime month) async {
 }
 
 class _Harness {
+  final bool familyEnabled;
   final accounts = _Accounts();
-  late final profiles = _Profiles(accounts);
+  late final profiles = _Profiles(accounts, familyEnabled);
   late final data = _Data(accounts);
+
+  _Harness({this.familyEnabled = false});
 
   Widget app() => MyApp(
     accountService: accounts,
     repository: data.finance('personal'),
     monthlyLimitRepository: data.budget('personal'),
     profileRepository: profiles,
-    financeRepositoryForProfile: data.finance,
-    monthlyLimitRepositoryForProfile: data.budget,
+    familyGroupRepository: familyEnabled ? profiles : null,
+    financeRepositoryForProfile: (profile) =>
+        data.finance(profile.id, profile.familyOwnerId),
+    monthlyLimitRepositoryForProfile: (profile) =>
+        data.budget(profile.id, profile.familyOwnerId),
   );
 }
 
@@ -465,14 +520,17 @@ class _Accounts implements AccountService {
   Future<void> close() => _changes.close();
 }
 
-class _Profiles implements FinancialProfileRepository {
+class _Profiles implements FinancialProfileRepository, FamilyGroupRepository {
+  static const inviteCode = '0123456789abcdef0123456789abcdef';
+  final bool familyEnabled;
+  String? _invitingOwner;
   final _Accounts accounts;
   final _states = <String, FinancialProfileState>{};
   FinanceException? selectionError;
   Completer<void>? selectionGate;
   Completer<void>? renameGate;
   int renameCalls = 0;
-  _Profiles(this.accounts);
+  _Profiles(this.accounts, this.familyEnabled);
 
   FinancialProfileState stateFor(String userId) => _states.putIfAbsent(
     userId,
@@ -490,10 +548,77 @@ class _Profiles implements FinancialProfileRepository {
           kind: FinancialProfileKind.business,
           name: 'Empresa',
         ),
+        if (familyEnabled) _familyProfile(userId, null),
       ],
       activeProfileId: 'personal',
     ),
   );
+
+  FinancialProfile _familyProfile(String userId, String? owner) =>
+      FinancialProfile(
+        id: FinancialProfile.familyId,
+        userId: userId,
+        kind: FinancialProfileKind.family,
+        name: 'Familiar',
+        familyOwnerId: owner,
+      );
+
+  void _setFamilyOwner(String userId, String? ownerId) {
+    final state = stateFor(userId);
+    _states[userId] = FinancialProfileState(
+      profiles: [
+        for (final profile in state.profiles)
+          if (profile.kind == FinancialProfileKind.family)
+            _familyProfile(userId, ownerId)
+          else
+            profile,
+      ],
+      activeProfileId: state.activeProfileId,
+    );
+  }
+
+  @override
+  Future<void> createGroup() async {
+    final userId = accounts.currentUser!.id;
+    _setFamilyOwner(userId, userId);
+  }
+
+  @override
+  Future<String> createInvite() async {
+    _invitingOwner = accounts.currentUser!.id;
+    return inviteCode;
+  }
+
+  @override
+  Future<void> joinGroup(String code) async {
+    if (code != inviteCode || _invitingOwner == null) {
+      throw const FinanceException('Convite inválido.');
+    }
+    _setFamilyOwner(accounts.currentUser!.id, _invitingOwner);
+    _invitingOwner = null;
+  }
+
+  @override
+  Future<List<FamilyMember>> loadMembers() async {
+    final ownerId = stateFor(accounts.currentUser!.id)
+        .activeProfile
+        .familyOwnerId;
+    return [
+      for (final user in [_ana, _bia])
+        if (stateFor(user.id).profiles.any(
+          (profile) => ownerId != null && profile.familyOwnerId == ownerId,
+        ))
+          FamilyMember(userId: user.id, name: user.name),
+    ];
+  }
+
+  @override
+  Future<void> leaveGroup() async =>
+      _setFamilyOwner(accounts.currentUser!.id, null);
+
+  @override
+  Future<void> removeMember(String userId) async =>
+      _setFamilyOwner(userId, null);
 
   @override
   Future<FinancialProfileState> loadProfiles() async =>
@@ -546,8 +671,8 @@ class _Data {
   final loadErrors = <(String, String), FinanceException>{};
   final loadGates = <(String, String), Completer<List<FinanceTransaction>>>{};
   final loadCalls = <(String, String), int>{};
-  final _finances = <String, _FinanceScope>{};
-  final _budgets = <String, _BudgetScope>{};
+  final _finances = <(String, String?), _FinanceScope>{};
+  final _budgets = <(String, String?), _BudgetScope>{};
   int nextId = 0;
   _Data(this.accounts) {
     final now = DateTime.now();
@@ -575,10 +700,16 @@ class _Data {
       ),
     ];
   }
-  _FinanceScope finance(String profileId) =>
-      _finances.putIfAbsent(profileId, () => _FinanceScope(this, profileId));
-  _BudgetScope budget(String profileId) =>
-      _budgets.putIfAbsent(profileId, () => _BudgetScope(this, profileId));
+  _FinanceScope finance(String profileId, [String? familyOwnerId]) =>
+      _finances.putIfAbsent((
+        profileId,
+        familyOwnerId,
+      ), () => _FinanceScope(this, profileId, familyOwnerId));
+  _BudgetScope budget(String profileId, [String? familyOwnerId]) =>
+      _budgets.putIfAbsent((
+        profileId,
+        familyOwnerId,
+      ), () => _BudgetScope(this, profileId, familyOwnerId));
   Future<void> close() async {
     for (final repository in _finances.values) {
       await repository.changesController.close();
@@ -590,12 +721,14 @@ class _FinanceScope implements FinanceRepository {
   final _Data data;
   final String profileId;
   final changesController = StreamController<void>.broadcast(sync: true);
-  _FinanceScope(this.data, this.profileId);
+  final String? familyOwnerId;
+  _FinanceScope(this.data, this.profileId, this.familyOwnerId);
+  String get _ownerId => familyOwnerId ?? data.accounts.currentUser!.id;
   @override
   Stream<void> get changes => changesController.stream;
   @override
   Future<List<FinanceTransaction>> loadTransactions() async {
-    final key = (data.accounts.currentUser!.id, profileId);
+    final key = (_ownerId, profileId);
     data.loadCalls.update(key, (count) => count + 1, ifAbsent: () => 1);
     final gate = data.loadGates.remove(key);
     if (gate != null) return gate.future;
@@ -612,7 +745,7 @@ class _FinanceScope implements FinanceRepository {
     required String description,
     required DateTime occurredOn,
   }) async {
-    final userId = data.accounts.currentUser!.id;
+    final userId = _ownerId;
     data.rows
         .putIfAbsent((userId, profileId), () => [])
         .add(
@@ -636,7 +769,7 @@ class _FinanceScope implements FinanceRepository {
     required String transactionId,
     required String description,
   }) async {
-    final owned = data.rows[(data.accounts.currentUser!.id, profileId)] ?? [];
+    final owned = data.rows[(_ownerId, profileId)] ?? [];
     final index = owned.indexWhere((row) => row.id == transactionId);
     if (index < 0) throw const FinanceException('Lançamento não encontrado.');
     final updated = FinanceTransaction.fromJson({
@@ -651,20 +784,18 @@ class _FinanceScope implements FinanceRepository {
 class _BudgetScope implements MonthlyLimitRepository {
   final _Data data;
   final String profileId;
-  _BudgetScope(this.data, this.profileId);
+  final String? familyOwnerId;
+  _BudgetScope(this.data, this.profileId, this.familyOwnerId);
+  String get _ownerId => familyOwnerId ?? data.accounts.currentUser!.id;
   @override
   Future<MonthlyLimit?> loadForMonth(DateTime month) async =>
-      data.limits[(
-        data.accounts.currentUser!.id,
-        profileId,
-        MonthlyLimit.formatMonth(month),
-      )];
+      data.limits[(_ownerId, profileId, MonthlyLimit.formatMonth(month))];
   @override
   Future<MonthlyLimit> saveForMonth({
     required DateTime month,
     required int limitCents,
   }) async {
-    final userId = data.accounts.currentUser!.id;
+    final userId = _ownerId;
     final record = MonthlyLimit(
       userId: userId,
       profileId: profileId,

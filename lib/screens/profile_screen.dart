@@ -14,6 +14,7 @@ class ProfileScreen extends StatefulWidget {
   final FinancialProfile? financialProfile;
   final bool isSigningOut;
   final VoidCallback onSignOut, onBack;
+  final VoidCallback? onOpenFamilyGroup;
   final Future<void> Function(String)? onSavePersonalName;
   final Future<void> Function(BusinessProfileData)? onSaveBusiness;
   final Future<void> Function()? onChoosePhoto, onRemovePhoto;
@@ -28,6 +29,7 @@ class ProfileScreen extends StatefulWidget {
     this.onSaveBusiness,
     this.onChoosePhoto,
     this.onRemovePhoto,
+    this.onOpenFamilyGroup,
   });
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -145,12 +147,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: colors.onSurfaceVariant),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Toque na foto para alterar',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
-              ),
+              if (widget.onChoosePhoto != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Toque na foto para alterar',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
               if (hasPhoto && widget.onRemovePhoto != null)
                 Center(
                   child: TextButton.icon(
@@ -163,42 +170,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               const SizedBox(height: 28),
-              Card.outlined(
-                color: colors.surface,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        business ? 'Dados da empresa' : 'Dados pessoais',
-                        key: const ValueKey('profile-account'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 24),
-                      ProfileDataForm(
-                        // Um novo perfil recebe novos campos, preservando o isolamento.
-                        key: ValueKey(
-                          'profile-form-${widget.user.id}-${profile?.id}',
+              if (widget.onOpenFamilyGroup != null)
+                Card.outlined(
+                  child: ListTile(
+                    leading: const Icon(Icons.groups_outlined),
+                    title: const Text('Grupo familiar'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _busy ? null : widget.onOpenFamilyGroup,
+                  ),
+                )
+              else
+                Card.outlined(
+                  color: colors.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          business ? 'Dados da empresa' : 'Dados pessoais',
+                          key: const ValueKey('profile-account'),
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        user: widget.user,
-                        profile: profile,
-                        onSavePersonalName: widget.onSavePersonalName,
-                        onSaveBusiness: widget.onSaveBusiness,
-                        onBusyChanged: (value) {
-                          if (mounted) setState(() => _saving = value);
-                        },
-                        onSaved: () => ScaffoldMessenger.of(context)
-                            .showSnackBar(
-                              const SnackBar(
-                                content: Text('Dados atualizados com sucesso.'),
+                        const SizedBox(height: 24),
+                        ProfileDataForm(
+                          // Um novo perfil recebe novos campos, preservando o isolamento.
+                          key: ValueKey(
+                            'profile-form-${widget.user.id}-${profile?.id}',
+                          ),
+                          user: widget.user,
+                          profile: profile,
+                          onSavePersonalName: widget.onSavePersonalName,
+                          onSaveBusiness: widget.onSaveBusiness,
+                          onBusyChanged: (value) {
+                            if (mounted) setState(() => _saving = value);
+                          },
+                          onSaved: () => ScaffoldMessenger.of(context)
+                              .showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Dados atualizados com sucesso.',
+                                  ),
+                                ),
                               ),
-                            ),
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               const SizedBox(height: 20),
               Card.outlined(
                 color: colors.surface,
@@ -305,7 +324,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     applicationVersion: '1.0.0',
     children: const [
       Text(
-        'Separe suas finanças em Pessoal e Empresa. '
+        'Use Pessoal, Empresa e Familiar para organizar suas finanças. '
         'Adicione lançamentos no botão + e acompanhe seus limites em Relatórios.',
       ),
     ],

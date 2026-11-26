@@ -8,12 +8,16 @@ import 'monthly_limit_repository.dart';
 class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
   final SupabaseClient _client;
   final String profileId;
+  final String? familyOwnerId;
 
   SupabaseMonthlyLimitRepository(
     this._client, {
     this.profileId = FinancialProfile.personalId,
+    this.familyOwnerId,
   }) {
-    if (profileId.trim().isEmpty || profileId != profileId.trim()) {
+    if (profileId.trim().isEmpty ||
+        profileId != profileId.trim() ||
+        (profileId == FinancialProfile.familyId) != (familyOwnerId != null)) {
       throw ArgumentError('O repositório precisa de um perfil válido.');
     }
   }
@@ -27,7 +31,7 @@ class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
       final row = await _client
           .from('monthly_limits')
           .select('user_id,profile_id,month,limit_cents')
-          .eq('user_id', userId)
+          .eq('user_id', familyOwnerId ?? userId)
           .eq('profile_id', profileId)
           .eq('month', monthKey)
           .maybeSingle();
@@ -53,7 +57,7 @@ class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
     final userId = _requireUserId();
     try {
       final limit = MonthlyLimit(
-        userId: userId,
+        userId: familyOwnerId ?? userId,
         profileId: profileId,
         month: month,
         limitCents: limitCents,
@@ -92,7 +96,7 @@ class SupabaseMonthlyLimitRepository implements MonthlyLimitRepository {
     int? expectedCents,
   }) {
     final limit = MonthlyLimit.fromJson(row);
-    if (limit.userId != userId ||
+    if (limit.userId != (familyOwnerId ?? userId) ||
         limit.profileId != profileId ||
         limit.monthKey != monthKey ||
         (expectedCents != null && limit.limitCents != expectedCents)) {

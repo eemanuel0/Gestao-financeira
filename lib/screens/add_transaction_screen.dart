@@ -75,7 +75,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final categories = _type == null
         ? <TransactionCategory>[]
         : TransactionCategory.allowedFor(_type!, profileId: widget.profileId);
-    final isBusiness = widget.profileId != FinancialProfile.personalId;
 
     return PopScope(
       canPop: !_saving,
@@ -108,9 +107,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          isBusiness
-                              ? 'Informe os dados da entrada ou saída da empresa.'
-                              : 'Informe os dados da sua receita ou despesa.',
+                          switch (widget.profileId) {
+                            FinancialProfile.personalId =>
+                              'Informe os dados da sua receita ou despesa.',
+                            FinancialProfile.familyId => 'Adicione uma receita ou despesa do grupo familiar.',
+                            _ => 'Informe os dados da entrada ou saída da empresa.',
+                          },
                           style: GoogleFonts.poppins(
                             color: AppColors.of(context).textSecondary,
                             fontSize: 13,

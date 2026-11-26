@@ -15,7 +15,10 @@ class SupabaseFinancialProfileRepository implements FinancialProfileRepository {
     final userId = _requireUserId();
     try {
       _checkSession(userId);
-      final response = await _client.rpc('ensure_financial_profiles');
+      final response = await _client.rpc(
+        'ensure_financial_profiles',
+        params: {'include_family': true},
+      );
       _checkSession(userId);
       if (response is! Map<String, dynamic> ||
           response['profiles'] is! List ||
@@ -94,7 +97,7 @@ class SupabaseFinancialProfileRepository implements FinancialProfileRepository {
     final userId = _requireUserId();
     _validateId(profileId);
     final normalizedName = name.trim();
-    if (profileId == FinancialProfile.personalId ||
+    if (!FinancialProfile.isBusinessId(profileId) ||
         normalizedName.isEmpty ||
         normalizedName.length > 60) {
       throw const FinanceException(

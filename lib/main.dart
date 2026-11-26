@@ -7,6 +7,7 @@ import 'models/services/supabase_password_service.dart';
 
 import 'core/app_database.dart';
 import 'models/services/supabase_account_service.dart';
+import 'models/services/supabase_family_group_repository.dart';
 import 'models/services/supabase_finance_repository.dart';
 import 'models/services/supabase_financial_profile_repository.dart';
 import 'models/services/supabase_monthly_limit_repository.dart';
@@ -34,10 +35,18 @@ Future<void> main() async {
         repository: SupabaseFinanceRepository(database),
         monthlyLimitRepository: SupabaseMonthlyLimitRepository(database),
         profileRepository: SupabaseFinancialProfileRepository(database),
-        financeRepositoryForProfile: (profileId) =>
-            SupabaseFinanceRepository(database, profileId: profileId),
-        monthlyLimitRepositoryForProfile: (profileId) =>
-            SupabaseMonthlyLimitRepository(database, profileId: profileId),
+        familyGroupRepository: SupabaseFamilyGroupRepository(database),
+        financeRepositoryForProfile: (profile) => SupabaseFinanceRepository(
+          database,
+          profileId: profile.id,
+          familyOwnerId: profile.familyOwnerId,
+        ),
+        monthlyLimitRepositoryForProfile: (profile) =>
+            SupabaseMonthlyLimitRepository(
+              database,
+              profileId: profile.id,
+              familyOwnerId: profile.familyOwnerId,
+            ),
         profileDetailsRepository: SupabaseProfileDetailsRepository(database),
         imagePicker: pickProfileImage,
       ),

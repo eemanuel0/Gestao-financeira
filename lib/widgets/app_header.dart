@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/app_colors.dart';
+import '../models/financial_profile.dart';
 
 // O perfil escolhido pertence à sessão e é controlado pela tela principal.
 class AppHeader extends StatelessWidget {
@@ -9,18 +10,20 @@ class AppHeader extends StatelessWidget {
   final ValueChanged<String>? onProfileSelected;
   final bool isSwitchingProfile;
   final String? businessName;
+  final bool showFamily;
 
   const AppHeader({
     super.key,
-    this.selectedProfileId = 'personal',
+    this.selectedProfileId = FinancialProfile.personalId,
     this.onProfileSelected,
     this.isSwitchingProfile = false,
     this.businessName,
+    this.showFamily = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isBusiness = selectedProfileId != 'personal';
+    final isBusiness = FinancialProfile.isBusinessId(selectedProfileId);
     final name = businessName?.trim();
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -64,25 +67,36 @@ class AppHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(30),
                     border: Border.all(color: AppColors.of(context).outline),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
                     children: [
                       _segment(
                         context,
-                        id: 'personal',
+                        id: FinancialProfile.personalId,
                         label: 'Pessoal',
                         icon: Icons.person_outline,
-                        selected: !isBusiness,
+                        selected:
+                            selectedProfileId == FinancialProfile.personalId,
                         showIcon: showIcons,
                       ),
                       _segment(
                         context,
-                        id: 'business',
+                        id: FinancialProfile.businessId,
                         label: 'Empresa',
                         icon: Icons.storefront_outlined,
                         selected: isBusiness,
                         showIcon: showIcons,
                       ),
+                      if (showFamily)
+                        _segment(
+                          context,
+                          id: FinancialProfile.familyId,
+                          label: 'Familiar',
+                          icon: Icons.groups_outlined,
+                          selected:
+                              selectedProfileId == FinancialProfile.familyId,
+                          showIcon: showIcons,
+                        ),
                     ],
                   ),
                 ),

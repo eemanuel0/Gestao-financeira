@@ -32,6 +32,8 @@ class HomeScreen extends StatefulWidget {
   final FinancialProfile? financialProfile;
   final ValueChanged<String>? onProfileSelected;
   final bool isSwitchingProfile;
+  final bool showFamily;
+  final VoidCallback? onOpenFamilyGroup;
   final Future<FinancialProfile> Function(String name)? onRenameBusiness;
   final Future<void> Function(String name)? onSavePersonalName;
   final Future<void> Function(BusinessProfileData data)? onSaveBusinessDetails;
@@ -48,6 +50,8 @@ class HomeScreen extends StatefulWidget {
     this.financialProfile,
     this.onProfileSelected,
     this.isSwitchingProfile = false,
+    this.showFamily = false,
+    this.onOpenFamilyGroup,
     this.onRenameBusiness,
     this.onSavePersonalName,
     this.onSaveBusinessDetails,
@@ -75,6 +79,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       widget.accountService.currentUser?.id == widget.user.id;
   String get _profileId =>
       widget.financialProfile?.id ?? FinancialProfile.personalId;
+  String get _dataOwnerId =>
+      widget.financialProfile?.dataOwnerId ?? widget.user.id;
 
   @override
   void initState() {
@@ -144,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!_sessionMatches ||
           loaded.any(
             (transaction) =>
-                transaction.userId != widget.user.id ||
+                transaction.userId != _dataOwnerId ||
                 transaction.profileId != _profileId,
           )) {
         throw const FinanceException(
@@ -241,7 +247,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     final userId = widget.user.id;
     final profileId = _profileId;
-    if (transaction.userId != userId || transaction.profileId != profileId) {
+    if (transaction.userId != _dataOwnerId ||
+        transaction.profileId != profileId) {
       return;
     }
     final repository = widget.repository;
@@ -270,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             throw const FinanceException('Sua sessão mudou. Entre novamente.');
           }
           if (updated.id != transaction.id ||
-              updated.userId != userId ||
+              updated.userId != _dataOwnerId ||
               updated.profileId != profileId ||
               updated.description != description.trim()) {
             throw const FinanceException(
@@ -316,6 +323,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final limits = widget.monthlyLimitRepository;
     final userId = widget.user.id;
     final profileId = _profileId;
+    final dataOwnerId = _dataOwnerId;
     if (saved.type != TransactionType.expense || limits == null) {
       _showMessage('Lançamento adicionado com sucesso.');
       return;
@@ -332,11 +340,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           !_sessionMatches ||
           widget.user.id != userId ||
           _profileId != profileId ||
+          _dataOwnerId != dataOwnerId ||
           widget.isSwitchingProfile) {
         return;
       }
       if (limit != null &&
-          (limit.userId != userId ||
+          (limit.userId != dataOwnerId ||
               limit.profileId != profileId ||
               limit.month.year != saved.occurredOn.year ||
               limit.month.month != saved.occurredOn.month)) {
@@ -346,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       final summary = FinanceSummary.forMonth(
         _transactions,
-        userId: userId,
+        userId: dataOwnerId,
         month: saved.occurredOn,
         profileId: profileId,
       );
@@ -365,6 +374,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _sessionMatches &&
           widget.user.id == userId &&
           _profileId == profileId &&
+          _dataOwnerId == dataOwnerId &&
           !widget.isSwitchingProfile) {
         _showMessage(
           'Lançamento salvo. Não foi possível verificar o limite agora.',
@@ -448,6 +458,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
                   child: AppHeader(
                     selectedProfileId: _profileId,
+                    showFamily: widget.showFamily,
                     onProfileSelected: widget.onProfileSelected,
                     isSwitchingProfile: widget.isSwitchingProfile,
                     businessName:
@@ -472,7 +483,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         children: [
                           _buildDashboard(summary),
                           ReportsScreen(
-                            userId: widget.user.id,
+                            userId: _dataOwnerId,
                             profileId: _profileId,
                             showHeader: false,
                             transactions: _transactions,
@@ -540,26 +551,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildDashboard(FinanceSummary summary) {
-    final isBusiness = _profileId != FinancialProfile.personalId;
+    final isBusiness = FinancialProfile.isBusinessId(_profileId);
+    final isFamily = _profileId == FinancialProfile.familyId;
     final monthSummary = FinanceSummary.forMonth(
       _transactions,
-      userId: widget.user.id,
+      userId: _dataOwnerId,
       profileId: _profileId,
       month: DateTime.now(),
     );
     return _scrollable([
       _text(
-        isBusiness ? 'Caixa da empresa' : 'Olá, ${widget.user.firstName}',
+        switch (_profileId) {
+          FinancialProfile.personalId => 'Olá, ${widget.user.firstName}',
+          FinancialProfile.familyId => 'Orçamento familiar',
+          _ => 'Caixa da empresa',
+        },
         size: 25,
         bold: true,
       ),
       const SizedBox(height: 4),
-      _text(
-        isBusiness
-            ? 'Acompanhe as entradas e saídas do seu negócio.'
-            : 'Aqui está o resumo das suas finanças.',
-        secondary: true,
-      ),
+      _text(switch (_profileId) {
+        FinancialProfile.personalId => 'Aqui está o resumo das suas finanças.',
+        FinancialProfile.familyId =>
+          'Acompanhe o dinheiro que entra e sai do grupo.',
+        _ => 'Acompanhe as entradas e saídas do seu negócio.',
+      }, secondary: true),
+      if (widget.onOpenFamilyGroup != null) ...[
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: widget.onOpenFamilyGroup,
+          icon: const Icon(Icons.groups_outlined),
+          label: const Text('Grupo familiar'),
+        ),
+      ],
       const SizedBox(height: 22),
       if (_loadError != null || (_isLoading && _transactions.isEmpty))
         _buildLoadStatus()
@@ -568,7 +592,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         BalanceCard(
           key: ValueKey('${widget.user.id}-$_profileId'),
           balanceCents: summary.balanceCents,
-          title: isBusiness ? 'Saldo em caixa' : 'Saldo atual',
+          title: isBusiness
+              ? 'Saldo em caixa'
+              : isFamily
+              ? 'Saldo do grupo'
+              : 'Saldo atual',
         ),
         const SizedBox(height: 14),
         Row(
@@ -794,6 +822,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       onSaveBusiness: saveBusiness,
       onChoosePhoto: widget.onChooseProfilePhoto,
       onRemovePhoto: widget.onRemoveProfilePhoto,
+      onOpenFamilyGroup: widget.onOpenFamilyGroup,
     );
   }
 
