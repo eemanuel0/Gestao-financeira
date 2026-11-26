@@ -1,8 +1,11 @@
-enum FinancialProfileKind { personal, business }
+enum FinancialProfileKind { personal, business, family }
 
 class FinancialProfile {
   static const String personalId = 'personal';
   static const String businessId = 'business';
+  static const String familyId = 'family.shared';
+
+  static bool isBusinessId(String id) => id != personalId && id != familyId;
 
   final String id;
   final String userId;
@@ -14,6 +17,9 @@ class FinancialProfile {
   final String? contactPhone;
   final String? avatarPath;
   final String? avatarUrl;
+  final String? familyOwnerId;
+
+  String get dataOwnerId => familyOwnerId ?? userId;
 
   FinancialProfile({
     required this.id,
@@ -26,6 +32,7 @@ class FinancialProfile {
     this.contactPhone,
     this.avatarPath,
     this.avatarUrl,
+    this.familyOwnerId,
   }) : name = name.trim() {
     if (id.trim().isEmpty || id != id.trim() || userId.trim().isEmpty) {
       throw ArgumentError('O perfil precisa de um ID e de um usuário.');
@@ -33,8 +40,16 @@ class FinancialProfile {
     if (this.name.isEmpty || this.name.length > 60) {
       throw ArgumentError('O nome deve ter entre 1 e 60 caracteres.');
     }
-    if ((kind == FinancialProfileKind.personal && id != personalId) ||
-        (kind == FinancialProfileKind.business && id == personalId)) {
+    final matchesKind = switch (kind) {
+      FinancialProfileKind.personal => id == personalId,
+      FinancialProfileKind.business => isBusinessId(id),
+      FinancialProfileKind.family => id == familyId,
+    };
+    if (!matchesKind ||
+        (familyOwnerId != null &&
+            (kind != FinancialProfileKind.family ||
+                familyOwnerId!.trim().isEmpty ||
+                familyOwnerId != familyOwnerId!.trim()))) {
       throw ArgumentError('O tipo do perfil não corresponde ao seu ID.');
     }
   }
@@ -50,6 +65,7 @@ class FinancialProfile {
     final kind = switch (rawKind) {
       'personal' => FinancialProfileKind.personal,
       'business' => FinancialProfileKind.business,
+      'family' => FinancialProfileKind.family,
       _ => throw const FormatException('Tipo de perfil inválido.'),
     };
     try {
@@ -63,6 +79,7 @@ class FinancialProfile {
         contactEmail: _optional(json, 'contact_email'),
         contactPhone: _optional(json, 'contact_phone'),
         avatarPath: _optional(json, 'avatar_path'),
+        familyOwnerId: _optional(json, 'family_owner_id'),
       );
     } on ArgumentError {
       throw const FormatException('Dados do perfil inválidos.');
@@ -79,6 +96,7 @@ class FinancialProfile {
     'contact_email': contactEmail,
     'contact_phone': contactPhone,
     'avatar_path': avatarPath,
+    if (kind == FinancialProfileKind.family) 'family_owner_id': familyOwnerId,
   };
 
   // A URL assinada é temporária e não é gravada no banco.
@@ -93,6 +111,7 @@ class FinancialProfile {
     contactPhone: contactPhone,
     avatarPath: avatarPath,
     avatarUrl: url,
+    familyOwnerId: familyOwnerId,
   );
 
   static String? _optional(Map<String, dynamic> json, String key) {

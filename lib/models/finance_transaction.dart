@@ -13,7 +13,7 @@ enum TransactionType {
   };
 
   String labelForProfile(String profileId) {
-    if (profileId == FinancialProfile.personalId) return label;
+    if (!FinancialProfile.isBusinessId(profileId)) return label;
     return this == income ? 'Entrada' : 'Saída';
   }
 
@@ -37,7 +37,10 @@ enum TransactionCategory {
   payroll,
   businessRent,
   utilities,
-  taxes;
+  taxes,
+  contribution,
+  householdBills,
+  education;
 
   String get label => switch (this) {
     salary => 'Salário',
@@ -54,6 +57,9 @@ enum TransactionCategory {
     businessRent => 'Aluguel',
     utilities => 'Contas da empresa',
     taxes => 'Impostos',
+    contribution => 'Contribuição',
+    householdBills => 'Contas da casa',
+    education => 'Educação',
   };
 
   IconData get icon => switch (this) {
@@ -71,6 +77,9 @@ enum TransactionCategory {
     businessRent => Icons.storefront_outlined,
     utilities => Icons.receipt_long_outlined,
     taxes => Icons.account_balance_outlined,
+    contribution => Icons.volunteer_activism_outlined,
+    householdBills => Icons.receipt_long_outlined,
+    education => Icons.school_outlined,
   };
 
   // Oferece as categorias adequadas ao espaço financeiro do formulário.
@@ -78,7 +87,22 @@ enum TransactionCategory {
     TransactionType type, {
     String profileId = FinancialProfile.personalId,
   }) {
-    if (profileId != FinancialProfile.personalId) {
+    if (profileId == FinancialProfile.familyId) {
+      return switch (type) {
+        TransactionType.income => const [contribution, salary, services, other],
+        TransactionType.expense => const [
+          food,
+          housing,
+          householdBills,
+          transport,
+          health,
+          education,
+          leisure,
+          other,
+        ],
+      };
+    }
+    if (FinancialProfile.isBusinessId(profileId)) {
       return switch (type) {
         TransactionType.income => const [sales, services, other],
         TransactionType.expense => const [
@@ -102,7 +126,7 @@ enum TransactionCategory {
     String profileId = FinancialProfile.personalId,
   }) {
     return allowedFor(type, profileId: profileId).contains(this) ||
-        (profileId != FinancialProfile.personalId &&
+        (FinancialProfile.isBusinessId(profileId) &&
             _personalCategories(type).contains(this));
   }
 

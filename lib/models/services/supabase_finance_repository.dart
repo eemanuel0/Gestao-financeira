@@ -7,13 +7,17 @@ import 'finance_repository.dart';
 class SupabaseFinanceRepository implements FinanceRepository {
   final SupabaseClient _client;
   final String profileId;
+  final String? familyOwnerId;
   static const int _pageSize = 500;
 
   SupabaseFinanceRepository(
     this._client, {
     this.profileId = FinancialProfile.personalId,
+    this.familyOwnerId,
   }) {
-    if (profileId.trim().isEmpty || profileId != profileId.trim()) {
+    if (profileId.trim().isEmpty ||
+        profileId != profileId.trim() ||
+        (profileId == FinancialProfile.familyId) != (familyOwnerId != null)) {
       throw ArgumentError('O repositório precisa de um perfil válido.');
     }
   }
@@ -35,7 +39,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
         final page = await _client
             .from('transactions')
             .select()
-            .eq('user_id', userId)
+            .eq('user_id', familyOwnerId ?? userId)
             .eq('profile_id', profileId)
             .order('occurred_on', ascending: false)
             .order('created_at', ascending: false)
@@ -45,7 +49,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
 
         for (final row in page) {
           final transaction = FinanceTransaction.fromJson(row);
-          if (transaction.userId != userId ||
+          if (transaction.userId != (familyOwnerId ?? userId) ||
               transaction.profileId != profileId) {
             throw const FinanceException(
               'Não foi possível carregar seus dados.',
@@ -79,7 +83,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
       // Usa a mesma validação dos registros lidos, antes de enviar à nuvem.
       final transaction = FinanceTransaction(
         id: 'pending',
-        userId: userId,
+        userId: familyOwnerId ?? userId,
         profileId: profileId,
         type: type,
         amountCents: amountCents,
@@ -128,13 +132,13 @@ class SupabaseFinanceRepository implements FinanceRepository {
           .from('transactions')
           .update({'description': name})
           .eq('id', id)
-          .eq('user_id', userId)
+          .eq('user_id', familyOwnerId ?? userId)
           .eq('profile_id', profileId)
           .select()
           .single();
       _checkSession(userId);
       final updated = FinanceTransaction.fromJson(row);
-      if (updated.userId != userId ||
+      if (updated.userId != (familyOwnerId ?? userId) ||
           updated.profileId != profileId ||
           updated.id != id ||
           updated.description != name) {

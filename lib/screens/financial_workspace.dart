@@ -9,10 +9,13 @@ import '../models/business_profile_data.dart';
 import '../models/financial_profile.dart';
 import '../models/picked_profile_image.dart';
 import '../models/services/account_service.dart';
+import '../models/services/family_group_repository.dart';
 import '../models/services/finance_repository.dart';
 import '../models/services/financial_profile_repository.dart';
 import '../models/services/monthly_limit_repository.dart';
 import '../models/services/profile_details_repository.dart';
+import '../widgets/app_header.dart';
+import 'family_group_screen.dart';
 import 'home_screen.dart';
 
 // Mantém os serviços de cada perfil separados durante toda a sessão.
@@ -20,11 +23,12 @@ class FinancialWorkspace extends StatefulWidget {
   final AppUser user;
   final AccountService accountService;
   final FinancialProfileRepository profileRepository;
-  final FinanceRepository Function(String profileId)
+  final FinanceRepository Function(FinancialProfile profile)
   financeRepositoryForProfile;
-  final MonthlyLimitRepository Function(String profileId)
+  final MonthlyLimitRepository Function(FinancialProfile profile)
   monthlyLimitRepositoryForProfile;
   final ProfileDetailsRepository? profileDetailsRepository;
+  final FamilyGroupRepository? familyGroupRepository;
   final Future<PickedProfileImage?> Function()? imagePicker;
 
   const FinancialWorkspace({
@@ -35,6 +39,7 @@ class FinancialWorkspace extends StatefulWidget {
     required this.financeRepositoryForProfile,
     required this.monthlyLimitRepositoryForProfile,
     this.profileDetailsRepository,
+    this.familyGroupRepository,
     this.imagePicker,
   });
 
@@ -44,8 +49,9 @@ class FinancialWorkspace extends StatefulWidget {
 
 class _FinancialWorkspaceState extends State<FinancialWorkspace>
     with WidgetsBindingObserver {
-  final _financeRepositories = <String, FinanceRepository>{};
-  final _limitRepositories = <String, MonthlyLimitRepository>{};
+  final _financeRepositories = <(String, String), FinanceRepository>{};
+  final _limitRepositories = <(String, String), MonthlyLimitRepository>{};
+  Timer? _familyRefresh;
   List<FinancialProfile> _profiles = const [];
   String? _activeProfileId;
   bool _loading = true;
@@ -67,6 +73,11 @@ class _FinancialWorkspaceState extends State<FinancialWorkspace>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_loadProfiles());
+    _familyRefresh = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_activeProfileId == FinancialProfile.familyId) {
+        unawaited(_refreshProfileDetails());
+      }
+    });
   }
 
   @override
@@ -79,6 +90,7 @@ class _FinancialWorkspaceState extends State<FinancialWorkspace>
     if (oldWidget.user.id != widget.user.id ||
         oldWidget.profileRepository != widget.profileRepository ||
         oldWidget.profileDetailsRepository != widget.profileDetailsRepository ||
+        oldWidget.familyGroupRepository != widget.familyGroupRepository ||
         oldWidget.accountService != widget.accountService) {
       _generation++;
       _profiles = const [];
@@ -97,6 +109,7 @@ class _FinancialWorkspaceState extends State<FinancialWorkspace>
   void dispose() {
     _generation++;
     _profileRefresh++;
+    _familyRefresh?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -134,8 +147,22 @@ class _FinancialWorkspaceState extends State<FinancialWorkspace>
           state.profiles.any((profile) => profile.userId != userId)) {
         return;
       }
-      // Renova as URLs temporárias e os dados; mantém o perfil aberto neste dispositivo.
-      setState(() => _profiles = state.profiles);
+      final previous = _profiles.firstWhere(
+        (profile) => profile.id == profileId,
+      );
+      final current = state.profiles.firstWhere(
+        (profile) => profile.id == profileId,
+        orElse: () => state.activeProfile,
+      );
+      if (previous.familyOwnerId != current.familyOwnerId) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..removeCurrentSnackBar();
+      }
+      setState(() {
+        _profiles = state.profiles;
+        _activeProfileId = current.id;
+      });
     } catch (_) {
       // A foto usa as iniciais se indisponível; uma falha aqui não apaga finanças.
     }
@@ -445,6 +472,42 @@ class _FinancialWorkspaceState extends State<FinancialWorkspace>
     }
   }
 
+  bool _hasFamilyScope(String userId, String? ownerId) =>
+      mounted &&
+      _sessionMatches &&
+      !_switching &&
+      widget.user.id == userId &&
+      _activeProfileId == FinancialProfile.familyId &&
+      _profiles.any(
+        (profile) =>
+            profile.kind == FinancialProfileKind.family &&
+            profile.familyOwnerId == ownerId,
+      );
+
+  Future<void> _openFamilyGroup(
+    FamilyGroupRepository repository,
+    String ownerId,
+  ) async {
+    final userId = widget.user.id;
+    if (!_hasFamilyScope(userId, ownerId)) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => FamilyGroupScreen(
+          repository: repository,
+          userId: userId,
+          ownerId: ownerId,
+          isCurrent: () => _hasFamilyScope(userId, ownerId),
+          onMembershipChanged: () async {
+            if (ModalRoute.of(routeContext)?.isCurrent == true) {
+              Navigator.of(routeContext).pop();
+            }
+          },
+        ),
+      ),
+    );
+    await _refreshProfileDetails();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_sessionMatches || _loading || _activeProfileId == null) {
@@ -498,19 +561,48 @@ class _FinancialWorkspaceState extends State<FinancialWorkspace>
     }
     final profileId = _activeProfileId!;
     final profile = _profiles.firstWhere((profile) => profile.id == profileId);
+    final family = widget.familyGroupRepository;
+    final familyOwner = profile.familyOwnerId;
+    final showFamily =
+        family != null &&
+        _profiles.any((profile) => profile.kind == FinancialProfileKind.family);
+
+    if (family != null &&
+        profile.kind == FinancialProfileKind.family &&
+        familyOwner == null) {
+      final userId = widget.user.id;
+      return FamilyGroupScreen(
+        repository: family,
+        userId: userId,
+        isCurrent: () => _hasFamilyScope(userId, null),
+        onMembershipChanged: _refreshProfileDetails,
+        header: AppHeader(
+          selectedProfileId: profileId,
+          showFamily: true,
+          isSwitchingProfile: _switching,
+          onProfileSelected: (id) => unawaited(_selectProfile(id)),
+        ),
+      );
+    }
+
+    final scope = (profileId, profile.dataOwnerId);
     return HomeScreen(
       key: ValueKey(widget.user.id),
       user: _displayUser ?? widget.user,
       accountService: widget.accountService,
       repository: _financeRepositories.putIfAbsent(
-        profileId,
-        () => widget.financeRepositoryForProfile(profileId),
+        scope,
+        () => widget.financeRepositoryForProfile(profile),
       ),
       monthlyLimitRepository: _limitRepositories.putIfAbsent(
-        profileId,
-        () => widget.monthlyLimitRepositoryForProfile(profileId),
+        scope,
+        () => widget.monthlyLimitRepositoryForProfile(profile),
       ),
       financialProfile: profile,
+      showFamily: showFamily,
+      onOpenFamilyGroup: family == null || familyOwner == null
+          ? null
+          : () => unawaited(_openFamilyGroup(family, familyOwner)),
       onProfileSelected: (id) => unawaited(_selectProfile(id)),
       isSwitchingProfile: _switching,
       onRenameBusiness: _renameBusiness,
@@ -535,10 +627,14 @@ class _FinancialWorkspaceState extends State<FinancialWorkspace>
               return _saveBusiness(data);
             },
       onChooseProfilePhoto:
-          widget.profileDetailsRepository == null || widget.imagePicker == null
+          profile.kind == FinancialProfileKind.family ||
+              widget.profileDetailsRepository == null ||
+              widget.imagePicker == null
           ? null
           : _choosePhoto,
-      onRemoveProfilePhoto: widget.profileDetailsRepository == null
+      onRemoveProfilePhoto:
+          profile.kind == FinancialProfileKind.family ||
+              widget.profileDetailsRepository == null
           ? null
           : _removePhoto,
       onRefreshProfile: _refreshProfileDetails,
