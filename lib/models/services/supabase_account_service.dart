@@ -81,6 +81,19 @@ class SupabaseAccountService implements AccountService {
   }
 
   static String _authMessage(AuthException error) {
+    final serverMessage = error.message.toLowerCase();
+
+    if (error.code == 'invalid_api_key' ||
+        serverMessage.contains('invalid api key') ||
+        serverMessage.contains('invalid api-key')) {
+      return 'A chave pública do Supabase foi recusada. Confira a Project URL e a Publishable key em config/supabase.json.';
+    }
+
+    if (serverMessage.contains('redirect') &&
+        (serverMessage.contains('url') || serverMessage.contains('path'))) {
+      return 'O endereço de confirmação não está autorizado. Cadastre a URL do aplicativo em Authentication > URL Configuration > Redirect URLs no Supabase.';
+    }
+
     return switch (error.code) {
       'invalid_credentials' => 'E-mail ou senha incorretos.',
       'email_not_confirmed' => 'Confirme seu e-mail antes de entrar.',

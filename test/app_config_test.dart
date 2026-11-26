@@ -21,6 +21,22 @@ void main() {
     );
   });
 
+  test('rejeita os valores de exemplo do arquivo de configuração', () {
+    expect(
+      () => config(
+        'sb_publishable_test',
+        url: 'https://seu-projeto.supabase.co',
+      ).validate(),
+      throwsFormatException,
+    );
+    expect(
+      () => config('sb_publishable_substitua_pela_chave_publica').validate(),
+      throwsFormatException,
+    );
+    expect(() => config('sua-chave-publica').validate(), throwsFormatException);
+    expect(() => config('chave-qualquer').validate(), throwsFormatException);
+  });
+
   test('rejeita chaves administrativas novas e JWT service_role', () {
     final payload = base64Url.encode(utf8.encode('{"role":"service_role"}'));
     expect(() => config('sb_secret_test').validate(), throwsFormatException);

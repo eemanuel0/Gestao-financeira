@@ -96,6 +96,20 @@ void main() {
     },
   );
 
+  test('identifica quando o Supabase rejeita a chave pública', () async {
+    server.authError = 'invalid_api_key';
+    await expectLater(
+      signIn(),
+      throwsA(
+        isA<AccountException>().having(
+          (error) => error.message,
+          'message',
+          'A chave pública do Supabase foi recusada. Confira a Project URL e a Publishable key em config/supabase.json.',
+        ),
+      ),
+    );
+  });
+
   test('sem sessão não consulta nem grava lançamentos', () async {
     await expectLater(
       finances.loadTransactions(),
